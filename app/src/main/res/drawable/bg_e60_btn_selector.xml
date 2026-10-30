@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Stare Focusată (iDrive Knob / D-Pad) -->
+    <item android:state_focused="true">
+        <shape android:shape="rectangle">
+            <corners android:radius="18dp" />
+            <solid android:color="#33FF7500" />
+            <stroke android:width="2dp" android:color="#B3FF7500" />
+        </shape>
+    </item>
+
+    <!-- Stare Apăsată / Pressed -->
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+            <corners android:radius="18dp" />
+            <solid android:color="#4DFF7500" />
+        </shape>
+    </item>
+
+    <!-- Stare Normală: Complet Transparent -->
+    <item>
+        <color android:color="@android:color/transparent" />
+    </item>
+
+</selector>

@@ -2043,9 +2043,17 @@ class MainActivity : AppCompatActivity() {
         centerCircle.setOnClickListener {
             cycleCenterMode()
         }
+        centerCircle.setOnLongClickListener {
+            openAllApps()
+            true
+        }
 
         viewCenterBmw.setOnClickListener {
             cycleCenterMode()
+        }
+        viewCenterBmw.setOnLongClickListener {
+            openAllApps()
+            true
         }
 
         viewCenterEnergy.setOnClickListener {
@@ -4870,20 +4878,11 @@ class MainActivity : AppCompatActivity() {
 
     private val focusOrderViews: List<View> by lazy {
         listOf(
-            btnLeft1,        // 1. Radio
-            btnLeft2,        // 2. Navigatie
-            btnLeft3,        // 3. Music
-            btnVolumeDown,   // 4. Volum - (Cercul 3)
-            btnPrevTrack,    // 5. Prev
-            btnPlayPause,    // 6. Play
-            btnNextTrack,    // 7. Next
-            btnVolumeUp,     // 8. Volum + (Cercul 4)
-            btnRight3,       // 9. Aplicatii
-            btnRight2,       // 10. Whatsapp
-            btnRight1,       // 11. Telefon
-            centerCircle,    // 12. Cerc Central
-            btnNightMode,    // 13. Day/Night
-            btnQuickSettings // 14. Setari
+            btnLeft1,     // 1. Radio (Sus)
+            btnLeft2,     // 2. Navigatie (Dreapta)
+            btnLeft3,     // 3. Music (Jos)
+            btnRight1,    // 4. Telefon (Stanga)
+            centerCircle  // 5. Cerc Central
         )
     }
 
