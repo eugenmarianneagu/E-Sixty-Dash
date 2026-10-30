@@ -269,9 +269,9 @@ class RadioService : MediaSessionService() {
                 }
             }
             val notif: Notification = NotificationCompat.Builder(this, BG_CHANNEL_ID)
-                .setContentTitle("BMW Radio Live")
+                .setContentTitle("E-Sixty Radio")
                 .setContentText("Redare radio activă")
-                .setSmallIcon(R.drawable.ic_launcher)
+                .setSmallIcon(R.mipmap.ic_launcher)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setOngoing(true)

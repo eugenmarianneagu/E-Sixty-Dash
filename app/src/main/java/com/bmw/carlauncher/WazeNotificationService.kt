@@ -315,8 +315,8 @@ object ExternalMediaManager {
                             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                         )
                         val notif = NotificationCompat.Builder(ctx, channelId)
-                            .setSmallIcon(R.drawable.ic_launcher)
-                            .setContentTitle("BMW Car Launcher")
+                            .setSmallIcon(R.mipmap.ic_launcher)
+                            .setContentTitle("E-Sixty Dash")
                             .setPriority(NotificationCompat.PRIORITY_MAX)
                             .setCategory(NotificationCompat.CATEGORY_SERVICE)
                             .setFullScreenIntent(pi, true)
