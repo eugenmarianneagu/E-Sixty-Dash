@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Focused state (ESP32 DPAD Active) - Glowing BMW Amber -->
+    <item android:state_focused="true">
+        <layer-list>
+            <item>
+                <shape android:shape="rectangle">
+                    <corners android:radius="14dp" />
+                    <gradient
+                        android:angle="270"
+                        android:startColor="#2D3039"
+                        android:centerColor="#202228"
+                        android:endColor="#141519" />
+                    <stroke android:width="2.5dp" android:color="@color/bmw_amber" />
+                </shape>
+            </item>
+            <!-- Glowing Amber LED Slot at Bottom -->
+            <item android:gravity="bottom" android:bottom="4dp" android:left="16dp" android:right="16dp" android:height="3.5dp">
+                <shape android:shape="rectangle">
+                    <corners android:radius="2dp" />
+                    <solid android:color="@color/bmw_amber_light" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+
+    <!-- Pressed state -->
+    <item android:state_pressed="true">
+        <layer-list>
+            <item>
+                <shape android:shape="rectangle">
+                    <corners android:radius="14dp" />
+                    <solid android:color="#261600" />
+                    <stroke android:width="2.5dp" android:color="@color/bmw_amber_light" />
+                </shape>
+            </item>
+            <item android:gravity="bottom" android:bottom="4dp" android:left="16dp" android:right="16dp" android:height="3.5dp">
+                <shape android:shape="rectangle">
+                    <corners android:radius="2dp" />
+                    <solid android:color="@color/bmw_amber_light" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+
+    <!-- Normal / Unfocused state (Black stitched leather look with amber LED notch) -->
+    <item>
+        <layer-list>
+            <!-- Wing Base Plate with Leather Gradient -->
+            <item>
+                <shape android:shape="rectangle">
+                    <corners android:radius="14dp" />
+                    <gradient
+                        android:angle="270"
+                        android:startColor="#25272D"
+                        android:centerColor="#1B1C21"
+                        android:endColor="#111215" />
+                    <stroke android:width="1.2dp" android:color="#363943" />
+                </shape>
+            </item>
+            <!-- White decorative contrast stitching line on outer border -->
+            <item android:top="3dp" android:bottom="8dp" android:left="5dp" android:right="5dp">
+                <shape android:shape="rectangle">
+                    <corners android:radius="10dp" />
+                    <stroke
+                        android:width="1dp"
+                        android:color="#4A4E5A"
+                        android:dashWidth="4dp"
+                        android:dashGap="4dp" />
+                </shape>
+            </item>
+            <!-- Amber LED Accent Slot at Bottom (like screenshot) -->
+            <item android:gravity="bottom" android:bottom="4dp" android:left="22dp" android:right="22dp" android:height="3dp">
+                <shape android:shape="rectangle">
+                    <corners android:radius="1.5dp" />
+                    <solid android:color="@color/bmw_amber" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+</selector>

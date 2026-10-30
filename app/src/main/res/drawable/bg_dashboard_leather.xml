@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Deep automotive black base with radial vignette -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="radial"
+                android:gradientRadius="550dp"
+                android:startColor="#181A20"
+                android:centerColor="#0C0D10"
+                android:endColor="#040405" />
+        </shape>
+    </item>
+
+    <!-- Outer instrument cluster circle border line (dark metallic rim) -->
+    <item android:top="2dp" android:bottom="2dp" android:left="30dp" android:right="30dp">
+        <shape android:shape="oval">
+            <stroke android:width="2dp" android:color="#2A2C34" />
+        </shape>
+    </item>
+
+    <!-- Horizontal divider line for Top Bar -->
+    <item android:top="40dp" android:left="20dp" android:right="20dp" android:height="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#22242B" />
+        </shape>
+    </item>
+
+    <!-- Horizontal divider line for Bottom Bar -->
+    <item android:gravity="bottom" android:bottom="46dp" android:left="20dp" android:right="20dp" android:height="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#22242B" />
+        </shape>
+    </item>
+</layer-list>

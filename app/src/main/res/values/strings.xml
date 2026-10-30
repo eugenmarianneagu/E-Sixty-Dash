@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">E-Sixty Dash</string>
+    <string name="accessibility_service_description">Permite blocarea automată a ecranului la trecerea în modul Portret și revenirea instantanee la E-Sixty Dash prin tastatura Bluetooth sau iDrive.</string>
+    <string name="accessibility_service_desc">Permite interceptarea tastei F12 de pe tastatura Bluetooth pentru a reveni instantaneu la E-Sixty Dash din orice aplicație.</string>
+</resources>

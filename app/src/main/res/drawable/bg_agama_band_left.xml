@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Focused state (ESP32 DPAD active) - BMW Amber Glow -->
+    <item android:state_focused="true">
+        <layer-list>
+            <item>
+                <shape android:shape="rectangle">
+                    <corners
+                        android:topLeftRadius="24dp"
+                        android:bottomLeftRadius="24dp"
+                        android:topRightRadius="0dp"
+                        android:bottomRightRadius="0dp" />
+                    <gradient
+                        android:angle="270"
+                        android:startColor="#333742"
+                        android:centerColor="#22252C"
+                        android:endColor="#15171B" />
+                    <stroke android:width="2.5dp" android:color="@color/bmw_amber" />
+                </shape>
+            </item>
+            <!-- Glowing Amber LED slot at bottom -->
+            <item android:gravity="bottom" android:bottom="4dp" android:left="32dp" android:right="20dp" android:height="3.5dp">
+                <shape android:shape="rectangle">
+                    <corners android:radius="1.5dp" />
+                    <solid android:color="@color/bmw_amber_light" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+
+    <!-- Pressed state -->
+    <item android:state_pressed="true">
+        <layer-list>
+            <item>
+                <shape android:shape="rectangle">
+                    <corners
+                        android:topLeftRadius="24dp"
+                        android:bottomLeftRadius="24dp"
+                        android:topRightRadius="0dp"
+                        android:bottomRightRadius="0dp" />
+                    <solid android:color="#261600" />
+                    <stroke android:width="2dp" android:color="@color/bmw_amber_light" />
+                </shape>
+            </item>
+            <item android:gravity="bottom" android:bottom="4dp" android:left="32dp" android:right="20dp" android:height="3.5dp">
+                <shape android:shape="rectangle">
+                    <corners android:radius="1.5dp" />
+                    <solid android:color="@color/bmw_amber_light" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+
+    <!-- Normal / Unfocused state (Contiguous leather horizontal band with 3D bevel) -->
+    <item>
+        <layer-list>
+            <!-- Band Base Plate with 3D shadow and highlight -->
+            <item>
+                <shape android:shape="rectangle">
+                    <corners
+                        android:topLeftRadius="24dp"
+                        android:bottomLeftRadius="24dp"
+                        android:topRightRadius="0dp"
+                        android:bottomRightRadius="0dp" />
+                    <gradient
+                        android:angle="270"
+                        android:startColor="#2A2C34"
+                        android:centerColor="#1B1D22"
+                        android:endColor="#111215" />
+                    <stroke android:width="1dp" android:color="#3A3C46" />
+                </shape>
+            </item>
+
+            <!-- White decorative contrast stitching line on outer curve -->
+            <item android:top="4dp" android:bottom="8dp" android:left="8dp" android:right="4dp">
+                <shape android:shape="rectangle">
+                    <corners
+                        android:topLeftRadius="18dp"
+                        android:bottomLeftRadius="18dp"
+                        android:topRightRadius="0dp"
+                        android:bottomRightRadius="0dp" />
+                    <stroke
+                        android:width="1dp"
+                        android:color="#5C6170"
+                        android:dashWidth="4dp"
+                        android:dashGap="4dp" />
+                </shape>
+            </item>
+
+            <!-- Amber LED Slot at bottom of band -->
+            <item android:gravity="bottom" android:bottom="4dp" android:left="36dp" android:right="24dp" android:height="3dp">
+                <shape android:shape="rectangle">
+                    <corners android:radius="1.5dp" />
+                    <solid android:color="@color/bmw_amber" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+</selector>

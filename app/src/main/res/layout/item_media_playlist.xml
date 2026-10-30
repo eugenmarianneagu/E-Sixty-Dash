@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="62dp"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingStart="8dp"
+    android:paddingEnd="8dp"
+    android:paddingTop="6dp"
+    android:paddingBottom="6dp"
+    android:background="@drawable/bg_favorite_item"
+    android:clickable="true"
+    android:focusable="true"
+    android:focusableInTouchMode="false">
+
+    <!-- Icon Cadru Rotund -->
+    <FrameLayout
+        android:id="@+id/playlist_icon_frame"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:background="@drawable/bg_circle_photo"
+        android:foreground="@drawable/bg_circle_photo_border"
+        android:padding="8dp">
+
+        <ImageView
+            android:id="@+id/item_playlist_icon"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_playlist_music"
+            app:tint="@color/bmw_amber" />
+    </FrameLayout>
+
+    <!-- Nume & Numar Piese -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="14dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/item_playlist_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Nume Playlist"
+            android:textColor="@color/bmw_white"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:singleLine="true"
+            android:ellipsize="end" />
+
+        <TextView
+            android:id="@+id/item_playlist_subtitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="0 piese"
+            android:textColor="@color/bmw_amber"
+            android:textSize="12sp"
+            android:singleLine="true" />
+    </LinearLayout>
+
+    <!-- Buton Stergere Playlist (doar pentru cele custom) -->
+    <FrameLayout
+        android:id="@+id/btn_delete_playlist"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_marginEnd="6dp"
+        android:background="@drawable/bg_radio_btn_delete"
+        android:clickable="true"
+        android:focusable="true"
+        android:focusableInTouchMode="false"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_delete"
+            app:tint="#FF5555" />
+    </FrameLayout>
+
+    <!-- Sageata Dreapta -->
+    <ImageView
+        android:id="@+id/item_playlist_arrow"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:src="@drawable/ic_chevron_right"
+        app:tint="#66FFAA00" />
+
+</LinearLayout>

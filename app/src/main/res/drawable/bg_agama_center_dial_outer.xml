@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 1. Outer Dark Dial Shadow -->
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="#0A0B0D" />
+        </shape>
+    </item>
+
+    <!-- 2. Dark Gunmetal Track with Subtle Radial Depth -->
+    <item
+        android:top="2dp"
+        android:bottom="2dp"
+        android:left="2dp"
+        android:right="2dp">
+        <shape android:shape="oval">
+            <stroke
+                android:width="1.5dp"
+                android:color="#363A44" />
+            <gradient
+                android:type="radial"
+                android:gradientRadius="145dp"
+                android:startColor="#22252C"
+                android:centerColor="#16181C"
+                android:endColor="#0F1013" />
+        </shape>
+    </item>
+
+    <!-- 3. Fine Inner Accent Arc Groove -->
+    <item
+        android:top="16dp"
+        android:bottom="16dp"
+        android:left="16dp"
+        android:right="16dp">
+        <shape android:shape="oval">
+            <stroke
+                android:width="1dp"
+                android:color="#1A1C20" />
+        </shape>
+    </item>
+</layer-list>

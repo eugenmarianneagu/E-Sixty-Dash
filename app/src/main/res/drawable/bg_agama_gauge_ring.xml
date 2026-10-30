@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Focused state (ESP32 DPAD active on Center Circle) - Glowing BMW Amber Halo -->
+    <item android:state_focused="true">
+        <layer-list>
+            <!-- Outer Amber Halo -->
+            <item>
+                <shape android:shape="oval">
+                    <solid android:color="#241400" />
+                    <stroke android:width="4dp" android:color="@color/bmw_amber" />
+                </shape>
+            </item>
+            <!-- 3D Beveled Ring Face -->
+            <item android:inset="5dp">
+                <shape android:shape="oval">
+                    <gradient
+                        android:type="radial"
+                        android:gradientRadius="180dp"
+                        android:startColor="#363945"
+                        android:centerColor="#20222A"
+                        android:endColor="#0F1014" />
+                    <stroke android:width="2dp" android:color="@color/bmw_amber_light" />
+                </shape>
+            </item>
+            <!-- Inner Bezel Ring -->
+            <item android:inset="38dp">
+                <shape android:shape="oval">
+                    <solid android:color="#0A0B0E" />
+                    <stroke android:width="2.5dp" android:color="@color/bmw_amber" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+
+    <!-- Pressed state -->
+    <item android:state_pressed="true">
+        <layer-list>
+            <item>
+                <shape android:shape="oval">
+                    <solid android:color="#3D2000" />
+                    <stroke android:width="4dp" android:color="@color/bmw_amber_light" />
+                </shape>
+            </item>
+            <item android:inset="5dp">
+                <shape android:shape="oval">
+                    <solid android:color="#1F1300" />
+                    <stroke android:width="2dp" android:color="@color/bmw_amber" />
+                </shape>
+            </item>
+            <item android:inset="38dp">
+                <shape android:shape="oval">
+                    <solid android:color="#0A0B0E" />
+                    <stroke android:width="2.5dp" android:color="@color/bmw_amber_light" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+
+    <!-- Normal / Unfocused state (Massive 3D Gunmetal Gauge Ring with Inner Channel) -->
+    <item>
+        <layer-list>
+            <!-- Outer 3D Rim with Chrome Highlight -->
+            <item>
+                <shape android:shape="oval">
+                    <gradient
+                        android:angle="270"
+                        android:startColor="#4A4E5C"
+                        android:centerColor="#262831"
+                        android:endColor="#141519" />
+                    <stroke android:width="2dp" android:color="#585D6E" />
+                </shape>
+            </item>
+            <!-- 3D Beveled Ring Face (where the 6 white icons sit) -->
+            <item android:inset="4dp">
+                <shape android:shape="oval">
+                    <gradient
+                        android:type="radial"
+                        android:gradientRadius="180dp"
+                        android:startColor="#30333E"
+                        android:centerColor="#1E2027"
+                        android:endColor="#121317" />
+                    <stroke android:width="1.2dp" android:color="#3C3F4D" />
+                </shape>
+            </item>
+            <!-- Inner Circular Recessed Groove -->
+            <item android:inset="38dp">
+                <shape android:shape="oval">
+                    <solid android:color="#0A0B0E" />
+                    <stroke android:width="2dp" android:color="#2C2E38" />
+                </shape>
+            </item>
+            <!-- Chrome Ring Encapsulating the Badge Core -->
+            <item android:inset="42dp">
+                <shape android:shape="oval">
+                    <stroke android:width="1.5dp" android:color="#686E7E" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+</selector>

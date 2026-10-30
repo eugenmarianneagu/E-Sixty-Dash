@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Deep automotive black radial background -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="radial"
+                android:gradientRadius="480dp"
+                android:startColor="#14161C"
+                android:centerColor="#090A0D"
+                android:endColor="#020203" />
+        </shape>
+    </item>
+
+    <!-- Concentric instrument arc lines (Agama Cluster) -->
+    <item android:top="28dp" android:bottom="28dp" android:left="110dp" android:right="110dp">
+        <shape android:shape="oval">
+            <stroke android:width="1.5dp" android:color="#21242E" />
+        </shape>
+    </item>
+
+    <item android:top="40dp" android:bottom="40dp" android:left="140dp" android:right="140dp">
+        <shape android:shape="oval">
+            <stroke android:width="1dp" android:color="#171920" />
+        </shape>
+    </item>
+</layer-list>

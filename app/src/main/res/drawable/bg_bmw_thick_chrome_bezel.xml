@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 1. Outer Dark Shadow -->
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="#060608" />
+        </shape>
+    </item>
+
+    <!-- 2. Clean Solid 3D Chrome Bezel Rim (Single solid frame, no inner nested rings) -->
+    <item
+        android:top="2dp"
+        android:bottom="2dp"
+        android:left="2dp"
+        android:right="2dp">
+        <shape android:shape="oval">
+            <stroke
+                android:width="6dp"
+                android:color="#DCE3EC" />
+            <solid android:color="#000000" />
+        </shape>
+    </item>
+
+</layer-list>

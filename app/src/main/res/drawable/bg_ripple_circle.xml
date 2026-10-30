@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/bmw_amber_glow_strong">
+    
+    <item android:id="@android:id/mask">
+        <shape android:shape="oval">
+            <solid android:color="@android:color/white" />
+        </shape>
+    </item>
+
+    <item>
+        <selector>
+            <item android:state_focused="true">
+                <shape android:shape="oval">
+                    <stroke android:width="2.5dp" android:color="@color/bmw_amber" />
+                    <solid android:color="@color/bmw_amber_glow" />
+                </shape>
+            </item>
+            <item android:drawable="@android:color/transparent" />
+        </selector>
+    </item>
+</ripple>

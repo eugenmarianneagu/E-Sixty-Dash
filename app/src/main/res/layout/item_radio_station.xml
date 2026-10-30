@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="62dp"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingStart="8dp"
+    android:paddingEnd="8dp"
+    android:paddingTop="6dp"
+    android:paddingBottom="6dp"
+    android:background="@drawable/bg_favorite_item"
+    android:clickable="true"
+    android:focusable="true"
+    android:focusableInTouchMode="false">
+
+    <!-- Icon / Sigla Post Radio -->
+    <FrameLayout
+        android:id="@+id/radio_logo_frame"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="@drawable/bg_circle_photo"
+        android:foreground="@drawable/bg_circle_photo_border"
+        android:padding="2dp">
+
+        <ImageView
+            android:id="@+id/radio_station_logo"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:src="@drawable/ic_gauge_radio" />
+    </FrameLayout>
+
+    <!-- Nume & Gen -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="14dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/radio_station_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Nume Post"
+            android:textColor="@color/bmw_white"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:singleLine="true"
+            android:ellipsize="end" />
+
+        <TextView
+            android:id="@+id/radio_station_genre"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="Live Radio"
+            android:textColor="@color/bmw_amber"
+            android:textSize="13sp"
+            android:singleLine="true" />
+    </LinearLayout>
+
+    <!-- Buton Play -->
+    <FrameLayout
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:background="@drawable/bg_call_btn_answer"
+        android:clickable="false"
+        android:focusable="false">
+
+        <ImageView
+            android:id="@+id/radio_station_action_icon"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_media_play" />
+    </FrameLayout>
+
+    <!-- Buton Editare Post -->
+    <FrameLayout
+        android:id="@+id/btn_edit_station"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:layout_marginStart="10dp"
+        android:background="@drawable/bg_radio_btn_edit"
+        android:clickable="true"
+        android:focusable="true"
+        android:focusableInTouchMode="false">
+
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_edit"
+            app:tint="@color/bmw_amber" />
+    </FrameLayout>
+
+    <!-- Buton Ștergere Post -->
+    <FrameLayout
+        android:id="@+id/btn_delete_station"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:layout_marginStart="10dp"
+        android:background="@drawable/bg_radio_btn_delete"
+        android:clickable="true"
+        android:focusable="true"
+        android:focusableInTouchMode="false">
+
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_delete"
+            app:tint="#FF5555" />
+    </FrameLayout>
+
+</LinearLayout>

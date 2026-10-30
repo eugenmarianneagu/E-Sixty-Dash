@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- BMW Theme Colors -->
+    <color name="bmw_black">#000000</color>
+    <color name="bmw_dark_card">#121316</color>
+    <color name="bmw_dark_card_focused">#1C1E24</color>
+    <color name="bmw_dark_border">#2A2C32</color>
+    
+    <!-- Classic BMW Instrument Cluster Amber (~605nm) -->
+    <color name="bmw_amber">#FF7500</color>
+    <color name="bmw_amber_light">#FFA033</color>
+    <color name="bmw_amber_dark">#B35300</color>
+    <color name="bmw_amber_glow">#4DFF7500</color>
+    <color name="bmw_amber_glow_strong">#80FF7500</color>
+
+    <!-- Contrast & Text -->
+    <color name="bmw_white">#FFFFFF</color>
+    <color name="bmw_gray_text">#8E929B</color>
+    <color name="bmw_gray_dim">#45474E</color>
+</resources>

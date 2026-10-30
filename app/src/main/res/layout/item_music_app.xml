@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="72dp"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp"
+    android:background="@drawable/bg_favorite_item"
+    android:clickable="true"
+    android:focusable="true"
+    android:focusableInTouchMode="false">
+
+    <FrameLayout
+        android:id="@+id/music_app_icon_frame"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="@drawable/bg_circle_photo"
+        android:foreground="@drawable/bg_circle_photo_border"
+        android:padding="6dp">
+
+        <ImageView
+            android:id="@+id/music_app_icon"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_gauge_music" />
+    </FrameLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="16dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/music_app_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="YouTube Music"
+            android:textColor="@color/bmw_white"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/music_app_desc"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="Redare audio integrată în cercul central"
+            android:textColor="@color/bmw_amber"
+            android:textSize="13sp" />
+    </LinearLayout>
+
+    <ImageView
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:src="@drawable/ic_media_next" />
+
+</LinearLayout>
