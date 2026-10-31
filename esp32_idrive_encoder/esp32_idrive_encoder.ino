@@ -35,10 +35,9 @@ static const int8_t DRAM_ATTR ENC_TABLE[16] = {
      0,  1, -1,  0
 };
 
-volatile uint8_t       encPrevState    = 0x03;
-volatile int8_t        encSubStep      = 0;
-volatile int16_t       encDelta        = 0;
-volatile unsigned long lastEncEdgeMs   = 0;
+volatile uint8_t  encPrevState = 0x03;
+volatile int8_t   encSubStep   = 0;
+volatile int16_t  encDelta     = 0;
 
 void IRAM_ATTR onEncoderISR() {
     uint8_t s1 = (uint8_t)digitalRead(PIN_S1);
@@ -50,37 +49,26 @@ void IRAM_ATTR onEncoderISR() {
     }
 
     uint8_t idx = (encPrevState << 2) | currState;
-    int8_t dir = ENC_TABLE[idx];
-    if (dir != 0) {
-        encSubStep += dir;
-        lastEncEdgeMs = millis();
-    }
+    encSubStep += ENC_TABLE[idx];
     encPrevState = currState;
 
-    // La pozitia de repaus standard (detent = 11) sau la 4 sub-pasi completi, validam pasul
+    // Validam exact 1 pas doar la ajungerea in pozitia de repaus (detent = 11 / 0x03)
     if (currState == 0x03) {
-        if (encSubStep >= 2) {
-            encDelta++;
-            encSubStep = 0;
-        } else if (encSubStep <= -2) {
-            encDelta--;
-            encSubStep = 0;
+        if (encSubStep <= -2) {
+            encDelta++; // Rotire dreapta (CW) -> TAB
+        } else if (encSubStep >= 2) {
+            encDelta--; // Rotire stanga (CCW) -> SHIFT + TAB
         }
-    } else if (encSubStep >= 4) {
-        encDelta++;
-        encSubStep = 0;
-    } else if (encSubStep <= -4) {
-        encDelta--;
         encSubStep = 0;
     }
 }
 
 // Starea butonului KEY (activ LOW cu INPUT_PULLUP)
-bool lastRawReading         = HIGH;
-bool buttonStableState      = HIGH;
-bool longPressTriggered     = false;
-unsigned long lastEdgeMs    = 0;
-unsigned long pressStartMs  = 0;
+bool lastRawReading        = HIGH;
+bool buttonStableState     = HIGH;
+bool longPressTriggered    = false;
+unsigned long lastEdgeMs   = 0;
+unsigned long pressStartMs = 0;
 
 void sendTabForward() {
     Serial.println("[iDrive] Rotire DREAPTA -> TAB");
@@ -144,21 +132,15 @@ void setup() {
 void loop() {
     unsigned long now = millis();
 
-    // Suport pentru encodere half-step care au detent stabil si in starea 00 (S1=0, S2=0)
+    // 1. Procesam rotirea encoderului acumulata (1 pas per click in detent 11)
+    int16_t steps = 0;
     noInterrupts();
-    if (encPrevState == 0x00 && (encSubStep >= 2 || encSubStep <= -2) && (now - lastEncEdgeMs) >= 15) {
-        if (encSubStep >= 2) {
-            encDelta++;
-        } else {
-            encDelta--;
-        }
-        encSubStep = 0;
+    if (encDelta != 0) {
+        steps = encDelta;
+        encDelta = 0;
     }
-    int16_t steps = encDelta;
-    encDelta = 0;
     interrupts();
 
-    // 1. Procesam rotirea encoderului acumulata
     while (steps > 0) {
         sendTabForward();
         steps--;
