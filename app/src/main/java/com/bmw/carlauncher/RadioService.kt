@@ -144,8 +144,10 @@ class RadioService : MediaSessionService() {
         player.addListener(object : Player.Listener {
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
                 if (!playWhenReady) {
-                    // Golim complet bufferul radio când playerul este oprit / pe pauză
-                    if (player.playbackState != Player.STATE_IDLE) {
+                    // Golim bufferul radio doar la oprire explicita de catre utilizator, nu la pierderea focusului audio (apel telefonic)
+                    if (reason != Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS &&
+                        player.playbackState != Player.STATE_IDLE
+                    ) {
                         player.stop()
                     }
                 } else {
@@ -154,6 +156,16 @@ class RadioService : MediaSessionService() {
                         player.seekTo(player.currentMediaItemIndex, C.TIME_UNSET)
                         player.prepare()
                     }
+                }
+            }
+
+            override fun onPlaybackSuppressionReasonChanged(playbackSuppressionReason: Int) {
+                if (playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_NONE && player.playWhenReady && player.mediaItemCount > 0) {
+                    player.seekTo(player.currentMediaItemIndex, C.TIME_UNSET)
+                    if (player.playbackState == Player.STATE_IDLE || player.playbackState == Player.STATE_ENDED) {
+                        player.prepare()
+                    }
+                    player.play()
                 }
             }
 

@@ -348,6 +348,9 @@ class MainActivity : AppCompatActivity() {
     private var wasYouTubePlayingBeforeVoice: Boolean = false
     private var wasExternalMediaPlayingBeforeVoice: Boolean = false
     private var wasLocalMusicPlayingBeforeVoice: Boolean = false
+    private var wasRadioPlayingBeforeCall: Boolean = false
+    private var lastRadioPlayingRealtimeMs: Long = 0L
+    private val callResumeRadioHandler = Handler(Looper.getMainLooper())
 
     // Favorites Overlay UI
     private lateinit var favoritesOverlayContainer: FrameLayout
@@ -1832,6 +1835,8 @@ class MainActivity : AppCompatActivity() {
                     if (activeMediaSource == ActiveMediaSource.RADIO || controller?.isPlaying == true) {
                         controller?.let { c ->
                             if (c.isPlaying) {
+                                lastRadioPlayingRealtimeMs = 0L
+                                wasRadioPlayingBeforeCall = false
                                 c.pause()
                                 updatePlayPauseIcon(false)
                             } else {
@@ -1916,6 +1921,8 @@ class MainActivity : AppCompatActivity() {
                         LocalMusicPlayer.pause()
                         updatePlayPauseIcon(false)
                     } else if (controller?.isPlaying == true) {
+                        lastRadioPlayingRealtimeMs = 0L
+                        wasRadioPlayingBeforeCall = false
                         controller?.pause()
                     } else if (isYouTubeWebMode && isYouTubeWebPlaying) {
                         youtubeWebView?.evaluateJavascript("window.__bmwUserPaused = true; var v = document.querySelector('video'); if (v) v.pause();", null)
@@ -4248,7 +4255,14 @@ class MainActivity : AppCompatActivity() {
         val inDisconnectCooldown = lastDisconnectTimestamp > 0L &&
                 (android.os.SystemClock.elapsedRealtime() - lastDisconnectTimestamp < 10000L)
 
-        if (isCarConnectedState && !inDisconnectCooldown && !ctrl.isPlaying && currentMode != CenterMode.MEDIA && !ExternalMediaManager.currentData.isPlaying) {
+        if (isCarConnectedState &&
+            !inDisconnectCooldown &&
+            !isPhoneCallActive() &&
+            !LocalMusicPlayer.isPlaying &&
+            !ctrl.isPlaying &&
+            currentMode != CenterMode.MEDIA &&
+            !ExternalMediaManager.currentData.isPlaying
+        ) {
             ctrl.play()
         }
 
@@ -4262,9 +4276,12 @@ class MainActivity : AppCompatActivity() {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 if (isPlaying) {
                     activeMediaSource = ActiveMediaSource.RADIO
+                    lastRadioPlayingRealtimeMs = android.os.SystemClock.elapsedRealtime()
                     if (LocalMusicPlayer.isPlaying) {
                         LocalMusicPlayer.pause()
                     }
+                } else if (activeMediaSource == ActiveMediaSource.RADIO && lastRadioPlayingRealtimeMs > 0L) {
+                    lastRadioPlayingRealtimeMs = android.os.SystemClock.elapsedRealtime()
                 }
                 updateRadioUI(ctrl)
             }
@@ -4274,6 +4291,7 @@ class MainActivity : AppCompatActivity() {
     private fun updateRadioUI(ctrl: MediaController) {
         if (ctrl.isPlaying) {
             activeMediaSource = ActiveMediaSource.RADIO
+            lastRadioPlayingRealtimeMs = android.os.SystemClock.elapsedRealtime()
         }
 
         // Butonul de PLAY / PAUSE din bara de jos si coperta in fereastra comuna Media
@@ -5690,7 +5708,46 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun isPhoneCallActive(): Boolean {
+        if (BMWInCallService.currentCall != null) return true
+        if (::callOverlayContainer.isInitialized && callOverlayContainer.visibility == View.VISIBLE) return true
+        val am = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+        val mode = am?.mode ?: AudioManager.MODE_NORMAL
+        return mode == AudioManager.MODE_IN_CALL ||
+               mode == AudioManager.MODE_RINGTONE ||
+               mode == AudioManager.MODE_IN_COMMUNICATION
+    }
+
+    private fun captureRadioStateBeforeCall() {
+        if (!wasRadioPlayingBeforeCall) {
+            val isCurrentlyPlaying = controller?.isPlaying == true
+            val wasJustPlaying = activeMediaSource == ActiveMediaSource.RADIO &&
+                    lastRadioPlayingRealtimeMs > 0L &&
+                    (android.os.SystemClock.elapsedRealtime() - lastRadioPlayingRealtimeMs) < 5000L
+            if (isCurrentlyPlaying || wasJustPlaying) {
+                wasRadioPlayingBeforeCall = true
+                callResumeRadioHandler.removeCallbacksAndMessages(null)
+            }
+        }
+    }
+
+    private fun resumeRadioAfterCallIfNeeded() {
+        if (!wasRadioPlayingBeforeCall) return
+        wasRadioPlayingBeforeCall = false
+        callResumeRadioHandler.removeCallbacksAndMessages(null)
+        val retryDelays = longArrayOf(300L, 750L, 1400L)
+        for (delay in retryDelays) {
+            callResumeRadioHandler.postDelayed({
+                if (!isPhoneCallActive() && !LocalMusicPlayer.isPlaying && controller?.isPlaying != true) {
+                    activeMediaSource = ActiveMediaSource.RADIO
+                    startRadioPlayback()
+                }
+            }, delay)
+        }
+    }
+
     fun showIncomingCallUI(number: String?, name: String?, customBitmap: Bitmap? = null) {
+        captureRadioStateBeforeCall()
         val contactInfo = if (customBitmap != null) {
             Pair(name, customBitmap)
         } else if (number != null) {
@@ -5730,6 +5787,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun showActiveCallUI() {
+        captureRadioStateBeforeCall()
         callStatusTitle.text = "● APEL ÎN DESFĂȘURARE"
         callRingingActions.visibility = View.GONE
         btnCallHangup.visibility = View.VISIBLE
@@ -5752,10 +5810,12 @@ class MainActivity : AppCompatActivity() {
     fun dismissCallUI() {
         callTimerHandler.removeCallbacks(callTimerRunnable)
         callOverlayContainer.visibility = View.GONE
+        resumeRadioAfterCallIfNeeded()
         focusPlayPauseButton()
     }
 
     fun showOutgoingCallUI(number: String, name: String, photo: Bitmap?) {
+        captureRadioStateBeforeCall()
         callContactName.text = name
         callPhoneNumber.text = number
 
@@ -5982,6 +6042,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startCallToRecent(call: RecentCall) {
+        captureRadioStateBeforeCall()
         favoritesOverlayContainer.visibility = View.GONE
         showOutgoingCallUI(call.number, call.name, call.photo)
 
