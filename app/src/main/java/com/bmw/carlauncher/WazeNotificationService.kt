@@ -475,7 +475,11 @@ object ExternalMediaManager {
     }
 
     fun selectBestController(sessions: List<MediaController>, appPackageName: String): MediaController? {
-        val externalSessions = sessions.filter { it.packageName != appPackageName }
+        val externalSessions = sessions.filter {
+            it.packageName != appPackageName &&
+            it.packageName != "com.bmw.carlauncher" &&
+            it.packageName != "com.bmw.esixtydash"
+        }
         if (externalSessions.isEmpty()) return null
 
         val pref = preferredPackage.lowercase(Locale.getDefault())
@@ -754,7 +758,7 @@ class WazeNotificationService : NotificationListenerService() {
         }
 
         // 2. Asculta notificarile Media de la YouTube Music, YouTube, Spotify sau playere video/audio externe
-        if (pkg != packageName) {
+        if (pkg != packageName && pkg != "com.bmw.carlauncher" && pkg != "com.bmw.esixtydash") {
             val notification = sbn.notification ?: return
             val extras = notification.extras ?: return
             val hasMediaSession = extras.containsKey(Notification.EXTRA_MEDIA_SESSION)
