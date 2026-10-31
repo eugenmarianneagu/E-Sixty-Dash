@@ -5453,7 +5453,10 @@ class MainActivity : AppCompatActivity() {
 
         val activeOverlay = getActiveSecondaryOverlay()
 
-        if (event.keyCode == KeyEvent.KEYCODE_TAB && event.action == KeyEvent.ACTION_DOWN) {
+        if (event.keyCode == KeyEvent.KEYCODE_TAB) {
+            if (event.action != KeyEvent.ACTION_DOWN) {
+                return true
+            }
             val isCallActiveOrOutgoing = ::callOverlayContainer.isInitialized &&
                     callOverlayContainer.visibility == View.VISIBLE &&
                     ::btnCallHangup.isInitialized &&
@@ -5514,9 +5517,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Acționare cu Enter / DPad Center
-        if ((event.keyCode == KeyEvent.KEYCODE_ENTER || event.keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER || event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER)
-            && event.action == KeyEvent.ACTION_DOWN
-        ) {
+        if (event.keyCode == KeyEvent.KEYCODE_ENTER || event.keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER || event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER) {
+            if (event.action != KeyEvent.ACTION_DOWN || event.repeatCount > 0) {
+                return true
+            }
             // 1. În ferestrele auxiliare: activează elementul selectat cu TAB
             if (activeOverlay != null) {
                 val focused = currentFocus
