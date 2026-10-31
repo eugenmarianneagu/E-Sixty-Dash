@@ -126,14 +126,28 @@ class BMWAccessibilityService : AccessibilityService() {
         }
     }
 
+    fun minimizeCurrentAppAndBringLauncher(context: Context, delayMs: Long = 180L) {
+        Log.i(TAG, "Minimizing current app with GLOBAL_ACTION_HOME...")
+        performGlobalAction(GLOBAL_ACTION_HOME)
+        mainHandler.postDelayed({
+            Log.i(TAG, "Bringing launcher to foreground...")
+            bringToForeground(context)
+        }, delayMs)
+    }
+
     private fun scheduleLockScreen(delayMs: Long = 250L) {
         mainHandler.removeCallbacksAndMessages(null)
         isClearingRecents = false
         mainHandler.postDelayed({
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                val locked = performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
-                Log.i(TAG, "clearRecentsAndLockScreen: lockScreen executed ($locked)")
-            }
+            try {
+                performGlobalAction(GLOBAL_ACTION_HOME)
+            } catch (_: Exception) {}
+            mainHandler.postDelayed({
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    val locked = performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+                    Log.i(TAG, "clearRecentsAndLockScreen: lockScreen executed ($locked)")
+                }
+            }, 80L)
         }, delayMs)
     }
 
@@ -149,12 +163,17 @@ class BMWAccessibilityService : AccessibilityService() {
         mainHandler.removeCallbacksAndMessages(null)
         isClearingRecents = true
 
-        // 1. Deschide ecranul Recents
-        val recentsSuccess = performGlobalAction(GLOBAL_ACTION_RECENTS)
-        Log.i(TAG, "performGlobalAction(GLOBAL_ACTION_RECENTS) returned: $recentsSuccess")
+        // 1. Minimizăm orice aplicație activă de pe ecran pentru ca ecranul să fie pe Home
+        performGlobalAction(GLOBAL_ACTION_HOME)
 
-        // 2. Încercări repetate de apăsare pe butonul de curățare Recents
-        val attemptDelays = longArrayOf(200L, 350L, 500L, 700L)
+        // 2. Deschidem ecranul Recents după 150ms
+        mainHandler.postDelayed({
+            val recentsSuccess = performGlobalAction(GLOBAL_ACTION_RECENTS)
+            Log.i(TAG, "performGlobalAction(GLOBAL_ACTION_RECENTS) returned: $recentsSuccess")
+        }, 150L)
+
+        // 3. Încercări repetate de apăsare pe butonul de curățare Recents
+        val attemptDelays = longArrayOf(350L, 500L, 700L, 950L)
         for (delay in attemptDelays) {
             mainHandler.postDelayed({
                 if (isClearingRecents && tryClickClearButton()) {
@@ -163,14 +182,14 @@ class BMWAccessibilityService : AccessibilityService() {
             }, delay)
         }
 
-        // 3. Fallback: dacă lista era goală sau nu s-a găsit butonul, revino pe Home și blochează
+        // 4. Fallback: dacă lista era goală sau nu s-a găsit butonul, revino pe Home și blochează
         mainHandler.postDelayed({
             if (isClearingRecents) {
                 tryClickClearButton()
                 performGlobalAction(GLOBAL_ACTION_HOME)
                 scheduleLockScreen(200L)
             }
-        }, 850L)
+        }, 1150L)
     }
 
     private fun tryClickClearButton(): Boolean {
@@ -280,6 +299,15 @@ class BMWAccessibilityService : AccessibilityService() {
                 } catch (e: Exception) {
                     Log.e(TAG, "bringToForeground fallback error", e)
                 }
+            }
+        }
+
+        fun minimizeCurrentAppAndBringLauncher(context: Context, delayMs: Long = 180L) {
+            val s = instance
+            if (s != null) {
+                s.minimizeCurrentAppAndBringLauncher(context, delayMs)
+            } else {
+                bringToForeground(context)
             }
         }
 

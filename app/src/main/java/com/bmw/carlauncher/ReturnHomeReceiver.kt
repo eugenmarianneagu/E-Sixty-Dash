@@ -235,6 +235,12 @@ class ReturnHomeReceiver : BroadcastReceiver() {
                 LocalMusicPlayer.pause()
                 LocalMusicPlayer.stop()
             } catch (_: Exception) {}
+            try {
+                ExternalMediaManager.getActiveMusicController(context)?.transportControls?.pause()
+                val am = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+                am?.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PAUSE))
+                am?.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PAUSE))
+            } catch (_: Exception) {}
 
             MainActivity.instance?.let { act ->
                 act.runOnUiThread {

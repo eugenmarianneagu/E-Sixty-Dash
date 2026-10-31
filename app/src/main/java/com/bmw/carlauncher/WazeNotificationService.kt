@@ -176,10 +176,12 @@ object ExternalMediaManager {
 
     private fun checkAutoReturn(pkg: String, title: String, pbState: Int?, isPlaying: Boolean) {
         // Numai daca a fost inarmat explicit la lansarea YouTube Music din launcher
-        if (!autoReturnArmed) return
+        // SAU daca suntem conectati la masina si launcher-ul este in fundal
+        val isTarget = autoReturnArmed || (MainActivity.isCarConnectedState && !MainActivity.isInForeground)
+        if (!isTarget) return
         if (!pkg.contains("youtube.music", ignoreCase = true)) return
 
-        val isNowPlaying = (pbState == PlaybackState.STATE_PLAYING) || (pbState == null && isPlaying)
+        val isNowPlaying = (pbState == PlaybackState.STATE_PLAYING) || (pbState == PlaybackState.STATE_BUFFERING) || (pbState == null && isPlaying)
         if (!isNowPlaying) {
             // Melodia este oprita/pe pauza in timp ce utilizatorul e in YT Music
             userSawPausedWhileArmed = true
@@ -195,17 +197,13 @@ object ExternalMediaManager {
         val now = SystemClock.elapsedRealtime()
         if (now - lastAutoReturnTriggerTime < 1500L) return
 
-        // Nu declanșăm în primele 800ms de la lansare (pentru a evita captarea stării vechi)
-        if (now - autoReturnArmTime < 800L) return
+        // Nu declanșăm în primele 600ms de la lansare (pentru a evita captarea stării vechi)
+        if (autoReturnArmed && now - autoReturnArmTime < 600L) return
 
-        // Verificam daca utilizatorul a apasat EXPLICIT Play in YT Music:
-        val explicitPlayPressed = if (!autoReturnInitialPlaying) {
-            // Nu canta cand a deschis aplicatia, iar acum a dat Play pe o piesa
+        // Verificam daca utilizatorul a apasat EXPLICIT Play in YT Music sau a selectat o melodie diferita:
+        val explicitPlayPressed = if (!autoReturnInitialPlaying || !autoReturnArmed) {
             true
         } else {
-            // Canta deja cand a plecat din launcher:
-            // Revine DOAR daca utilizatorul a pus pauza si a apasat Play din nou,
-            // sau a selectat o melodie diferita (titlul s-a schimbat):
             val titleChanged = title.isNotEmpty() && autoReturnInitialTitle.isNotEmpty() && !title.equals(autoReturnInitialTitle, ignoreCase = true)
             userSawPausedWhileArmed || titleChanged
         }
@@ -219,7 +217,7 @@ object ExternalMediaManager {
             mainHandler.removeCallbacks(autoReturnPollRunnable)
             mainHandler.postDelayed({
                 bringLauncherToFront()
-            }, 300L)
+            }, 250L)
         }
     }
 
@@ -228,6 +226,14 @@ object ExternalMediaManager {
         try {
             syncActiveSessions(ctx)
         } catch (_: Exception) {}
+
+        // Dacă serviciul de accesibilitate este activ, minimizăm mai întâi YouTube Music prin HOME
+        // astfel încât YouTube Music să fie trecut în fundal și să nu rămână activ în stiva de sub BMW Dash
+        if (BMWAccessibilityService.instance != null) {
+            android.util.Log.i("ExternalMediaManager", "Minimizare fizică YouTube Music prin Accessibility HOME și revenire la BMW Dash...")
+            BMWAccessibilityService.minimizeCurrentAppAndBringLauncher(ctx, 180L)
+            return
+        }
 
         // 1. Overlay invizibil 1x1 pentru acordare statut vizibil pe Xiaomi HyperOS / MIUI
         var tempOverlayView: View? = null
