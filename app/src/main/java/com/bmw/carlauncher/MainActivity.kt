@@ -2643,7 +2643,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateClock() {
         val now = Date()
-        val timeFormat = SimpleDateFormat("H:mm", Locale.getDefault())
+        val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
         textClock.text = timeFormat.format(now)
     }
 

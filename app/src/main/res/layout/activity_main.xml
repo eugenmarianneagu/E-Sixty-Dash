@@ -429,14 +429,18 @@
         <!-- Ceas Digital deasupra Cercului Central, integrat in chenarul gri de sus -->
         <TextView
             android:id="@+id/text_clock"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
             android:text="14:45"
             android:textColor="@color/bmw_white"
-            android:textSize="20sp"
+            android:textSize="23sp"
             android:textStyle="bold"
-            android:letterSpacing="0.08"
+            android:fontFamily="sans-serif-black"
+            android:textScaleX="1.80"
+            android:letterSpacing="0.06"
             android:gravity="center"
+            android:singleLine="true"
             android:includeFontPadding="false"
             android:shadowColor="#CC000000"
             android:shadowDx="0"
@@ -593,11 +597,12 @@
         <!-- 5. CERCUL CENTRAL (MAPA / MEDIA / RADIO / BMW)                 -->
         <!-- Raport 1:1 păstrat exact în interiorul ramei metalice           -->
         <!-- ============================================================== -->
-        <!-- Halo glow care inconjoara cercul central cand are focus -->
+        <!-- Halo glow dezactivat pe pagina principala -->
         <com.bmw.carlauncher.BmwCircleHaloView
             android:id="@+id/center_circle_halo"
             android:layout_width="0dp"
             android:layout_height="0dp"
+            android:visibility="gone"
             android:clickable="false"
             android:focusable="false"
             android:layout_marginStart="-50dp"
@@ -686,9 +691,9 @@
                             android:gravity="top|center_horizontal"
                             android:orientation="vertical"
                             android:paddingTop="8dp"
-                            android:paddingBottom="8dp"
-                            android:paddingStart="24dp"
-                            android:paddingEnd="24dp"
+                            android:paddingBottom="6dp"
+                            android:paddingStart="18dp"
+                            android:paddingEnd="18dp"
                             android:visibility="visible">
 
                             <TextView
@@ -701,11 +706,14 @@
                                 android:id="@+id/center_media_title"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
+                                android:paddingStart="8dp"
+                                android:paddingEnd="8dp"
                                 android:gravity="center"
                                 android:text="No Media"
                                 android:textColor="@color/bmw_white"
-                                android:textSize="12.5sp"
+                                android:textSize="22sp"
                                 android:textStyle="bold"
+                                android:includeFontPadding="false"
                                 android:singleLine="true"
                                 android:ellipsize="marquee"
                                 android:marqueeRepeatLimit="marquee_forever"
@@ -717,13 +725,14 @@
                                 android:id="@+id/center_media_artist"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="2dp"
-                                android:paddingStart="12dp"
-                                android:paddingEnd="12dp"
+                                android:layout_marginTop="3dp"
+                                android:paddingStart="26dp"
+                                android:paddingEnd="26dp"
                                 android:gravity="center"
                                 android:text="Selectează o piesă..."
                                 android:textColor="@color/bmw_amber"
-                                android:textSize="10.5sp"
+                                android:textSize="17.5sp"
+                                android:includeFontPadding="false"
                                 android:singleLine="true"
                                 android:ellipsize="end"
                                 android:visibility="visible" />
