@@ -124,13 +124,15 @@ class BMWAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun finishLockScreenFast() {
+    private fun scheduleLockScreen(delayMs: Long = 250L) {
         mainHandler.removeCallbacksAndMessages(null)
         isClearingRecents = false
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            val locked = performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
-            Log.i(TAG, "clearRecentsAndLockScreen: lockScreen executed ($locked)")
-        }
+        mainHandler.postDelayed({
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val locked = performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+                Log.i(TAG, "clearRecentsAndLockScreen: lockScreen executed ($locked)")
+            }
+        }, delayMs)
     }
 
     fun startClearRecentsAndLock() {
@@ -141,33 +143,32 @@ class BMWAccessibilityService : AccessibilityService() {
         }
         lastClearAndLockTimestamp = now
 
-        Log.i(TAG, "startClearRecentsAndLock() called (fast mode)")
+        Log.i(TAG, "startClearRecentsAndLock() called")
         mainHandler.removeCallbacksAndMessages(null)
         isClearingRecents = true
 
-        // 1. Deschide instant ecranul Recents
+        // 1. Deschide ecranul Recents
         val recentsSuccess = performGlobalAction(GLOBAL_ACTION_RECENTS)
         Log.i(TAG, "performGlobalAction(GLOBAL_ACTION_RECENTS) returned: $recentsSuccess")
 
-        // 2. Încercări rapide de apăsare pe butonul de curățare Recents; imediat ce reușește, blochează ecranul
-        val attemptDelays = longArrayOf(90L, 170L, 250L, 330L)
+        // 2. Încercări repetate de apăsare pe butonul de curățare Recents
+        val attemptDelays = longArrayOf(200L, 350L, 500L, 700L)
         for (delay in attemptDelays) {
             mainHandler.postDelayed({
                 if (isClearingRecents && tryClickClearButton()) {
-                    mainHandler.removeCallbacksAndMessages(null)
-                    mainHandler.postDelayed({ finishLockScreenFast() }, 70L)
+                    scheduleLockScreen(250L)
                 }
             }, delay)
         }
 
-        // 3. Fallback rapid dacă lista Recents era deja goală
+        // 3. Fallback: dacă lista era goală sau nu s-a găsit butonul, revino pe Home și blochează
         mainHandler.postDelayed({
             if (isClearingRecents) {
                 tryClickClearButton()
                 performGlobalAction(GLOBAL_ACTION_HOME)
-                mainHandler.postDelayed({ finishLockScreenFast() }, 70L)
+                scheduleLockScreen(200L)
             }
-        }, 420L)
+        }, 850L)
     }
 
     private fun tryClickClearButton(): Boolean {
@@ -211,10 +212,9 @@ class BMWAccessibilityService : AccessibilityService() {
             if (pkg.contains("miui.home") || pkg.contains("launcher") || pkg.contains("systemui")) {
                 mainHandler.postDelayed({
                     if (isClearingRecents && tryClickClearButton()) {
-                        mainHandler.removeCallbacksAndMessages(null)
-                        mainHandler.postDelayed({ finishLockScreenFast() }, 70L)
+                        scheduleLockScreen(250L)
                     }
-                }, 30L)
+                }, 50L)
             }
         }
     }
