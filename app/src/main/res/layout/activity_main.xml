@@ -2345,7 +2345,7 @@
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="540dp"
-            android:layout_height="390dp"
+            android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:background="@drawable/bg_call_panel"
             android:padding="20dp"
@@ -2376,7 +2376,7 @@
                 android:clickable="true"
                 android:focusable="true"
                 android:focusableInTouchMode="false"
-                android:nextFocusDown="@id/seek_day_brightness"
+                android:nextFocusDown="@id/btn_open_notif_settings"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintEnd_toEndOf="parent" />
 
@@ -2391,7 +2391,7 @@
             <!-- Content Container for Settings Rows -->
             <ScrollView
                 android:layout_width="match_parent"
-                android:layout_height="0dp"
+                android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:scrollbars="none"
                 android:fadeScrollbars="true"
@@ -2402,12 +2402,13 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:paddingBottom="8dp">
+                    android:paddingBottom="4dp">
 
-                    <!-- 1. Luminozitate Zi -->
+                    <!-- 1. Luminozitate Zi (eliminat din UI) -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:visibility="gone"
                         android:background="@drawable/bg_speed_badge"
                         android:orientation="vertical"
                         android:padding="12dp">
@@ -2448,22 +2449,22 @@
                             android:id="@+id/seek_day_brightness"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
+                            android:visibility="gone"
                             android:layout_marginTop="8dp"
                             android:max="100"
                             android:progress="90"
                             android:progressDrawable="@drawable/bmw_seekbar_progress"
                             android:thumb="@drawable/bmw_seekbar_thumb"
                             android:splitTrack="false"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:focusableInTouchMode="false"
-                            android:nextFocusDown="@id/seek_night_brightness" />
+                            android:clickable="false"
+                            android:focusable="false" />
                     </LinearLayout>
 
-                    <!-- 2. Luminozitate Noapte -->
+                    <!-- 2. Luminozitate Noapte (eliminat din UI) -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:visibility="gone"
                         android:layout_marginTop="10dp"
                         android:background="@drawable/bg_speed_badge"
                         android:orientation="vertical"
@@ -2505,23 +2506,22 @@
                             android:id="@+id/seek_night_brightness"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
+                            android:visibility="gone"
                             android:layout_marginTop="8dp"
                             android:max="100"
                             android:progress="10"
                             android:progressDrawable="@drawable/bmw_seekbar_progress"
                             android:thumb="@drawable/bmw_seekbar_thumb"
                             android:splitTrack="false"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:focusableInTouchMode="false" />
+                            android:clickable="false"
+                            android:focusable="false" />
                     </LinearLayout>
 
-                    <!-- 3. Acces Notificari (WhatsApp / SMS) -->
+                    <!-- Acces Notificari (WhatsApp / SMS) -->
                     <LinearLayout
                         android:id="@+id/btn_open_notif_settings"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
                         android:background="@drawable/bg_speed_badge"
                         android:orientation="horizontal"
                         android:gravity="center_vertical"
