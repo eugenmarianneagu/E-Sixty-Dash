@@ -198,6 +198,7 @@ class MainActivity : AppCompatActivity() {
 
     private var currentMode = CenterMode.BMW
     private var activeMediaSource = ActiveMediaSource.EXTERNAL_APP
+    private var isNotificationWindowActive = false
     private var isNightMode = true
     enum class BrightnessMode {
         DAY,
@@ -2174,23 +2175,36 @@ class MainActivity : AppCompatActivity() {
         CenterMode.NOTIFICATION -> viewCenterNotification
     }
 
-    private fun cycleCenterMode() {
+    private fun cycleCenterMode(reverse: Boolean = false) {
         val previousMode = currentMode
+        isNotificationWindowActive = false
+        currentFocus?.clearFocus()
         if (previousMode == CenterMode.NOTIFICATION) {
             if (VoiceMessagePlayer.isPlaying() || VoiceMessagePlayer.getCurrentFile() != null) {
                 VoiceMessagePlayer.stop()
                 resumeOtherPlayersAfterVoiceMessage()
             }
         }
-        currentMode = when (currentMode) {
-            CenterMode.BMW -> CenterMode.NOTIFICATION
-            CenterMode.NOTIFICATION -> CenterMode.MEDIA
-            CenterMode.MEDIA -> CenterMode.MAP
-            CenterMode.RADIO -> CenterMode.MAP
-            CenterMode.MAP -> CenterMode.ENERGY
-            CenterMode.ENERGY -> CenterMode.BMW
+        currentMode = if (!reverse) {
+            when (currentMode) {
+                CenterMode.BMW -> CenterMode.NOTIFICATION
+                CenterMode.NOTIFICATION -> CenterMode.MEDIA
+                CenterMode.MEDIA -> CenterMode.MAP
+                CenterMode.RADIO -> CenterMode.MAP
+                CenterMode.MAP -> CenterMode.ENERGY
+                CenterMode.ENERGY -> CenterMode.BMW
+            }
+        } else {
+            when (currentMode) {
+                CenterMode.BMW -> CenterMode.ENERGY
+                CenterMode.ENERGY -> CenterMode.MAP
+                CenterMode.MAP -> CenterMode.MEDIA
+                CenterMode.MEDIA -> CenterMode.NOTIFICATION
+                CenterMode.RADIO -> CenterMode.NOTIFICATION
+                CenterMode.NOTIFICATION -> CenterMode.BMW
+            }
         }
-        updateCenterModeUI(animateFrom = previousMode)
+        updateCenterModeUI(animateFrom = previousMode, reverse = reverse)
 
         if (currentMode == CenterMode.MEDIA && !isYouTubeWebMode && activeMediaSource == ActiveMediaSource.EXTERNAL_APP) {
             ExternalMediaManager.syncActiveSessions(this)
@@ -2268,7 +2282,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateCenterModeUI(animateFrom: CenterMode? = null) {
+    private fun updateCenterModeUI(animateFrom: CenterMode? = null, reverse: Boolean = false) {
         viewCenterWaze.visibility = View.GONE
         viewCenterSpeedo.visibility = View.GONE
 
@@ -2321,7 +2335,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 .start()
 
-            // Ecranul care iese: rotatie fina spre stanga + micsorare + fade out
+            // Ecranul care iese: rotatie fina + micsorare + fade out
             val outView = getViewForMode(animateFrom)
             outView.animate().cancel()
             outView.visibility = View.VISIBLE
@@ -2333,7 +2347,7 @@ class MainActivity : AppCompatActivity() {
                 .alpha(0f)
                 .scaleX(0.76f)
                 .scaleY(0.76f)
-                .rotation(-22f)
+                .rotation(if (reverse) 22f else -22f)
                 .setDuration(250L)
                 .setInterpolator(DecelerateInterpolator(1.5f))
                 .withEndAction {
@@ -2359,7 +2373,7 @@ class MainActivity : AppCompatActivity() {
             inView.alpha = 0f
             inView.scaleX = 0.76f
             inView.scaleY = 0.76f
-            inView.rotation = 22f
+            inView.rotation = if (reverse) -22f else 22f
             inView.animate()
                 .alpha(1f)
                 .scaleX(1f)
@@ -2728,6 +2742,113 @@ class MainActivity : AppCompatActivity() {
         btnCloseMusic.isFocusable = true
         btnCloseMusic.isFocusableInTouchMode = false
         btnCloseMusic.enableInstantClickOnTouch()
+    }
+
+    private fun showMediaSourcePickerDialog() {
+        val options = mutableListOf(
+            MusicOption(
+                title = "Radio",
+                desc = "Continuă redarea ultimului post radio ascultat",
+                iconRes = R.drawable.ic_gauge_radio,
+                action = { playLastRadioStation() }
+            ),
+            MusicOption(
+                title = "Media Player",
+                desc = "Continuă redarea ultimei melodii din Media Player",
+                iconRes = R.drawable.ic_media_play,
+                action = { playLastLocalMusicTrack() }
+            )
+        )
+
+        listMusicApps.adapter = object : BaseAdapter() {
+            override fun getCount(): Int = options.size
+            override fun getItem(position: Int): Any = options[position]
+            override fun getItemId(position: Int): Long = position.toLong()
+
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
+                val view = convertView ?: layoutInflater.inflate(R.layout.item_music_app, parent, false)
+                view.isFocusable = true
+                view.isFocusableInTouchMode = false
+                view.enableInstantClickOnTouch()
+                val opt = options[position]
+
+                val frame = view.findViewById<FrameLayout>(R.id.music_app_icon_frame)
+                frame.outlineProvider = circleOutlineProvider
+                frame.clipToOutline = true
+
+                val icon = view.findViewById<ImageView>(R.id.music_app_icon)
+                val title = view.findViewById<TextView>(R.id.music_app_title)
+                val desc = view.findViewById<TextView>(R.id.music_app_desc)
+
+                icon.setImageResource(opt.iconRes)
+                title.text = opt.title
+                desc.text = opt.desc
+
+                view.setOnClickListener {
+                    musicOverlayContainer.visibility = View.GONE
+                    focusPlayPauseButton()
+                    opt.action()
+                }
+
+                return view
+            }
+        }
+
+        musicOverlayContainer.visibility = View.VISIBLE
+        btnCloseMusic.isFocusable = true
+        btnCloseMusic.isFocusableInTouchMode = false
+        btnCloseMusic.enableInstantClickOnTouch()
+        focusAndCenterListItem(listMusicApps, 0)
+    }
+
+    private fun playLastRadioStation() {
+        musicOverlayContainer.visibility = View.GONE
+        LocalMusicPlayer.pause()
+        stopYouTubeWebPlayer()
+        try {
+            ExternalMediaManager.getActiveMusicController(this)?.transportControls?.pause()
+        } catch (_: Exception) {}
+        activeMediaSource = ActiveMediaSource.RADIO
+        currentMode = CenterMode.MEDIA
+        refreshStations()
+        val ctrl = controller
+        if (ctrl != null) {
+            val lastIdx = getSharedPreferences("agama_radio_prefs", Context.MODE_PRIVATE)
+                .getInt("last_station_index", 0)
+                .coerceIn(0, (stations.size - 1).coerceAtLeast(0))
+            if (ctrl.currentMediaItemIndex != lastIdx && lastIdx < ctrl.mediaItemCount) {
+                ctrl.seekToDefaultPosition(lastIdx)
+            }
+            ctrl.play()
+            updatePlayPauseIcon(true)
+        } else {
+            val radioIntent = Intent(this, RadioService::class.java).apply {
+                action = RadioService.ACTION_START_PLAY
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(radioIntent)
+            } else {
+                startService(radioIntent)
+            }
+        }
+        updateCenterModeUI()
+    }
+
+    private fun playLastLocalMusicTrack() {
+        musicOverlayContainer.visibility = View.GONE
+        controller?.pause()
+        stopYouTubeWebPlayer()
+        try {
+            ExternalMediaManager.getActiveMusicController(this)?.transportControls?.pause()
+        } catch (_: Exception) {}
+        activeMediaSource = ActiveMediaSource.LOCAL_PLAYER
+        currentMode = CenterMode.MEDIA
+        val started = LocalMusicPlayer.playOrResumeLastTrack(this)
+        updatePlayPauseIcon(started)
+        updateCenterModeUI()
+        if (!started) {
+            showMediaPlayerOverlay(openCurrentPlaying = true)
+        }
     }
 
     private fun launchMediaPlayer() {
@@ -4397,6 +4518,7 @@ class MainActivity : AppCompatActivity() {
             val unreadList = CarNotificationHub.unreadNotifications
             if (unreadList.isEmpty()) {
                 activeNotification = null
+                isNotificationWindowActive = false
                 layoutNotifEmptyState.visibility = View.VISIBLE
                 notifHeaderRow.visibility = View.GONE
                 notifCenterContent.visibility = View.GONE
@@ -4405,12 +4527,8 @@ class MainActivity : AppCompatActivity() {
                 btnNotifNext.visibility = View.GONE
                 tvNotifCounter?.visibility = View.GONE
 
-                centerCircle.descendantFocusability = ViewGroup.FOCUS_BEFORE_DESCENDANTS
-                centerCircle.isFocusable = true
-                centerCircle.isFocusableInTouchMode = true
-                centerCircle.post {
-                    centerCircle.requestFocus()
-                }
+                centerCircle.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+                currentFocus?.clearFocus()
             } else {
                 layoutNotifEmptyState.visibility = View.GONE
                 notifHeaderRow.visibility = View.VISIBLE
@@ -4622,16 +4740,22 @@ class MainActivity : AppCompatActivity() {
         }
         btnNotifSpeak.visibility = View.VISIBLE
 
-        centerCircle.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+        centerCircle.descendantFocusability = if (isNotificationWindowActive) {
+            ViewGroup.FOCUS_AFTER_DESCENDANTS
+        } else {
+            ViewGroup.FOCUS_BLOCK_DESCENDANTS
+        }
 
         resetNotifDismissTimer()
 
         btnNotifAction.isFocusable = true
         btnNotifAction.isFocusableInTouchMode = true
-        btnNotifAction.post {
-            val cur = currentFocus
-            if (cur == null || (cur != btnNotifNext && cur != btnNotifPrev && cur != btnNotifSpeak && cur != btnNotifClose && cur != centerCircle)) {
-                btnNotifAction.requestFocus()
+        if (isNotificationWindowActive) {
+            btnNotifAction.post {
+                val cur = currentFocus
+                if (cur == null || (cur != btnNotifNext && cur != btnNotifPrev && cur != btnNotifSpeak && cur != btnNotifClose)) {
+                    btnNotifAction.requestFocus()
+                }
             }
         }
     }
@@ -4645,6 +4769,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun dismissNotification() {
         notifDismissHandler.removeCallbacks(notifDismissRunnable)
+        isNotificationWindowActive = false
         if (VoiceMessagePlayer.isPlaying() || VoiceMessagePlayer.getCurrentFile() != null) {
             VoiceMessagePlayer.stop()
             resumeOtherPlayersAfterVoiceMessage()
@@ -5007,8 +5132,6 @@ class MainActivity : AppCompatActivity() {
             // 5. cancel
             if (::btnNotifClose.isInitialized && btnNotifClose.visibility == View.VISIBLE) views.add(btnNotifClose)
         }
-        // 6. cercul central
-        if (::centerCircle.isInitialized && centerCircle.visibility == View.VISIBLE) views.add(centerCircle)
         return views
     }
 
@@ -5298,6 +5421,8 @@ class MainActivity : AppCompatActivity() {
         if (event.keyCode == KeyEvent.KEYCODE_F12) {
             if (event.action == KeyEvent.ACTION_DOWN) {
                 Log.i("MainActivity", "F12 apasat! Revenire la ecranul principal BMW...")
+                isNotificationWindowActive = false
+                currentFocus?.clearFocus()
                 dismissAllOverlays()
                 if (currentMode != CenterMode.BMW) {
                     val prev = currentMode
@@ -5352,78 +5477,47 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
 
+            // În ferestrele auxiliare, comportamentul rămâne neschimbat (navigare cu TAB / SHIFT+TAB)
             if (activeOverlay != null) {
                 return handleOverlayTabNavigation(activeOverlay, event.isShiftPressed)
             }
 
-            if (currentMode == CenterMode.NOTIFICATION) {
+            // Dacă fereastra de notificări din cercul central a fost activată cu ENTER, TAB navighează printre butoanele ei
+            if (currentMode == CenterMode.NOTIFICATION && isNotificationWindowActive) {
                 val notifViews = getNotificationFocusableViews()
                 if (notifViews.isNotEmpty()) {
                     val isShift = event.isShiftPressed
                     val current = currentFocus
-                    val currentIndex = if (current == centerCircle) {
-                        notifViews.indexOf(centerCircle)
-                    } else {
-                        val matched = notifViews.filter { it != centerCircle }.firstOrNull { it == current || it.hasFocus() || isViewDescendantOf(current ?: it, it) }
-                        if (matched != null) notifViews.indexOf(matched) else -1
-                    }
+                    val matched = notifViews.firstOrNull { it == current || it.hasFocus() || (current != null && isViewDescendantOf(current, it)) }
+                    val currentIndex = if (matched != null) notifViews.indexOf(matched) else -1
                     val nextIndex = if (currentIndex < 0) {
-                        if (isShift) notifViews.size - 1 else {
-                            val actionIdx = notifViews.indexOf(btnNotifAction)
-                            if (actionIdx >= 0) actionIdx else 0
-                        }
+                        if (isShift) notifViews.size - 1 else 0
                     } else if (isShift) {
                         if (currentIndex <= 0) notifViews.size - 1 else currentIndex - 1
                     } else {
                         if (currentIndex >= notifViews.size - 1) 0 else currentIndex + 1
                     }
                     val target = notifViews[nextIndex]
-                    if (target == centerCircle) {
-                        centerCircle.descendantFocusability = ViewGroup.FOCUS_BEFORE_DESCENDANTS
-                        centerCircle.isFocusable = true
-                        centerCircle.isFocusableInTouchMode = true
-                        centerCircle.requestFocus()
-                    } else {
-                        centerCircle.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
-                        target.isFocusable = true
-                        target.isFocusableInTouchMode = true
-                        target.requestFocus()
-                    }
+                    centerCircle.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+                    target.isFocusable = true
+                    target.isFocusableInTouchMode = true
+                    target.requestFocus()
                     return true
-                }
-            }
-
-            val isShift = event.isShiftPressed
-            val currentFocusView = currentFocus
-            val currentIndex = focusOrderViews.indexOfFirst { it == currentFocusView || it.hasFocus() }
-
-            val nextIndex = if (currentIndex < 0) {
-                // Dacă nu e focalizat niciun buton, pornim de la cercul central (dacă suntem în mod notificare fără notificări) sau de la 0 / ultimul
-                if (currentMode == CenterMode.NOTIFICATION) {
-                    val centerIdx = focusOrderViews.indexOf(centerCircle)
-                    if (centerIdx >= 0) centerIdx else if (isShift) focusOrderViews.size - 1 else 0
-                } else if (isShift) {
-                    focusOrderViews.size - 1
                 } else {
-                    0
+                    isNotificationWindowActive = false
                 }
-            } else if (isShift) {
-                if (currentIndex <= 0) focusOrderViews.size - 1 else currentIndex - 1
-            } else {
-                if (currentIndex >= focusOrderViews.size - 1) 0 else currentIndex + 1
             }
 
-            val target = focusOrderViews[nextIndex]
-            target.isFocusable = true
-            target.isFocusableInTouchMode = true
-            target.requestFocus()
+            // Pe fereastra principală, rotirea encoderului (TAB / SHIFT+TAB) derulează ferestrele din cercul central
+            cycleCenterMode(reverse = event.isShiftPressed)
             return true
         }
 
-        // Actionare cu Enter / DPad Center pentru oricare element focalizat din launcher
+        // Acționare cu Enter / DPad Center
         if ((event.keyCode == KeyEvent.KEYCODE_ENTER || event.keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER || event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER)
             && event.action == KeyEvent.ACTION_DOWN
         ) {
+            // 1. În ferestrele auxiliare: activează elementul selectat cu TAB
             if (activeOverlay != null) {
                 val focused = currentFocus
                 if (focused != null && isViewDescendantOf(focused, activeOverlay)) {
@@ -5444,29 +5538,55 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            if (currentMode == CenterMode.NOTIFICATION) {
-                val focused = currentFocus
-                if (focused != null) {
-                    val notifViews = getNotificationFocusableViews()
-                    val target = if (focused == centerCircle) {
-                        centerCircle
-                    } else {
-                        notifViews.filter { it != centerCircle }.firstOrNull { it == focused || it.hasFocus() || isViewDescendantOf(focused, it) } ?: if (centerCircle in notifViews) centerCircle else null
-                    }
-                    if (target != null) {
-                        target.isPressed = true
-                        target.postDelayed({ target.isPressed = false }, 180)
-                        target.performClick()
-                        return true
-                    }
+            // 2. Pe fereastra principală: acționează în funcție de fereastra activă din cercul central
+            when (currentMode) {
+                CenterMode.BMW -> {
+                    // Logo BMW -> nimic
+                    return true
                 }
-            }
-
-            val focused = currentFocus
-            if (focused != null && (focused in focusOrderViews || focusOrderViews.any { it.hasFocus() })) {
-                val target = focusOrderViews.firstOrNull { it == focused || it.hasFocus() } ?: focused
-                target.performClick()
-                return true
+                CenterMode.NOTIFICATION -> {
+                    val notifViews = getNotificationFocusableViews()
+                    if (!isNotificationWindowActive) {
+                        // Activează fereastra de notificări pentru navigare cu TAB printre butoanele ei
+                        if (notifViews.isNotEmpty()) {
+                            isNotificationWindowActive = true
+                            centerCircle.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+                            val firstBtn = notifViews.first()
+                            firstBtn.isFocusable = true
+                            firstBtn.isFocusableInTouchMode = true
+                            firstBtn.requestFocus()
+                        }
+                    } else {
+                        // Fereastra de notificări este deja activă -> apasă butonul focalizat
+                        val focused = currentFocus
+                        val target = notifViews.firstOrNull {
+                            it == focused || it.hasFocus() || (focused != null && isViewDescendantOf(focused, it))
+                        } ?: notifViews.firstOrNull()
+                        if (target != null) {
+                            target.isPressed = true
+                            target.postDelayed({ target.isPressed = false }, 180)
+                            target.performClick()
+                        } else {
+                            isNotificationWindowActive = false
+                        }
+                    }
+                    return true
+                }
+                CenterMode.MEDIA, CenterMode.RADIO -> {
+                    // Deschide fereastra auxiliară pentru alegere Radio sau Media Player
+                    showMediaSourcePickerDialog()
+                    return true
+                }
+                CenterMode.MAP -> {
+                    // Deschide Google Maps
+                    launchNavigationApp()
+                    return true
+                }
+                CenterMode.ENERGY -> {
+                    // Deschide Home Assistant
+                    launchHomeAssistantApp()
+                    return true
+                }
             }
         }
 

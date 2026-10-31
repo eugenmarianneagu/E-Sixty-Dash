@@ -193,6 +193,63 @@ object LocalMusicPlayer {
         }
     }
 
+    fun playOrResumeLastTrack(context: Context): Boolean {
+        initialize(context)
+        val player = exoPlayer ?: return false
+
+        // Stop Radio if radio was playing
+        try {
+            context.sendBroadcast(Intent(RadioService.ACTION_STOP_RADIO).setPackage(context.packageName))
+        } catch (_: Exception) {}
+
+        // If we already have a loaded queue in memory, just resume playback
+        if (currentQueue.isNotEmpty() && player.mediaItemCount > 0) {
+            if (player.playbackState == Player.STATE_IDLE) {
+                player.prepare()
+            }
+            player.play()
+            notifyTrackChanged(currentTrack)
+            notifyPlaybackStateChanged(true)
+            return true
+        }
+
+        // Otherwise load from SharedPreferences (or default to first available track)
+        if (LocalMusicManager.cachedTracks.isEmpty()) {
+            LocalMusicManager.scanDeviceTracks(context)
+        }
+        if (LocalMusicManager.cachedTracks.isEmpty()) {
+            return false
+        }
+
+        val prefs = context.getSharedPreferences("agama_local_music", Context.MODE_PRIVATE)
+        val lastPlaylistId = prefs.getString("last_playlist_id", null)
+        val lastTrackPath = prefs.getString("last_track_path", null)
+
+        val playlists = LocalMusicManager.getAllPlaylists()
+        val targetPlaylist = playlists.firstOrNull { it.id == lastPlaylistId }
+            ?: playlists.firstOrNull { LocalMusicManager.getTracksForPlaylist(it).isNotEmpty() }
+            ?: LocalPlaylist(
+                id = LocalMusicManager.ID_ALL_SONGS,
+                name = "Toate piesele",
+                isSystem = true,
+                isFolder = false,
+                trackPaths = LocalMusicManager.cachedTracks.map { it.path }.toMutableList()
+            )
+
+        val tracks = LocalMusicManager.getTracksForPlaylist(targetPlaylist)
+        if (tracks.isEmpty()) return false
+
+        val startIndex = if (!lastTrackPath.isNullOrEmpty()) {
+            val idx = tracks.indexOfFirst { it.path == lastTrackPath }
+            if (idx >= 0) idx else 0
+        } else {
+            0
+        }
+
+        playPlaylist(context, targetPlaylist, startIndex)
+        return true
+    }
+
     fun play() {
         val player = exoPlayer ?: return
         appContext?.let { ctx ->
@@ -446,6 +503,17 @@ object LocalMusicPlayer {
     }
 
     private fun notifyTrackChanged(track: LocalTrack?) {
+        if (track != null) {
+            appContext?.let { ctx ->
+                try {
+                    ctx.getSharedPreferences("agama_local_music", Context.MODE_PRIVATE)
+                        .edit()
+                        .putString("last_track_path", track.path)
+                        .putString("last_playlist_id", currentPlaylist?.id ?: LocalMusicManager.ID_ALL_SONGS)
+                        .apply()
+                } catch (_: Exception) {}
+            }
+        }
         mainHandler.post {
             for (listener in listeners) {
                 try {
