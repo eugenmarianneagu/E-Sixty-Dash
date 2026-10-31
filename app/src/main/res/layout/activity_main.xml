@@ -447,11 +447,12 @@
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toTopOf="@id/gl_top_pill_top" />
 
-        <!-- Caseta Dreapta-Sus: Media Info (Titlu melodie sus, artist jos) -->
+        <!-- Caseta Dreapta-Sus: Media Info (ascunsa, mutata in Cercul Central) -->
         <LinearLayout
             android:id="@+id/pill_status_right"
             android:layout_width="0dp"
             android:layout_height="0dp"
+            android:visibility="gone"
             android:orientation="vertical"
             android:gravity="center"
             android:paddingStart="16dp"
@@ -662,32 +663,71 @@
                         android:background="@drawable/bg_media_overlay_scrim"
                         android:visibility="gone" />
 
+                    <!-- Bara semitransparenta pe prima treime de jos a cercului (1/3 din inaltime, decupata circular de view_center_media) -->
                     <LinearLayout
-                        android:id="@+id/center_media_info_container"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:gravity="center"
                         android:orientation="vertical"
-                        android:padding="16dp"
-                        android:visibility="gone">
+                        android:weightSum="3"
+                        android:clickable="false"
+                        android:focusable="false">
 
-                        <TextView
-                            android:id="@+id/center_media_source"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:visibility="gone" />
+                        <Space
+                            android:layout_width="match_parent"
+                            android:layout_height="0dp"
+                            android:layout_weight="2" />
 
-                        <TextView
-                            android:id="@+id/center_media_title"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:visibility="gone" />
+                        <LinearLayout
+                            android:id="@+id/center_media_info_container"
+                            android:layout_width="match_parent"
+                            android:layout_height="0dp"
+                            android:layout_weight="1"
+                            android:background="@drawable/bg_center_media_bottom_bar"
+                            android:gravity="top|center_horizontal"
+                            android:orientation="vertical"
+                            android:paddingTop="8dp"
+                            android:paddingBottom="8dp"
+                            android:paddingStart="24dp"
+                            android:paddingEnd="24dp"
+                            android:visibility="visible">
 
-                        <TextView
-                            android:id="@+id/center_media_artist"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:visibility="gone" />
+                            <TextView
+                                android:id="@+id/center_media_source"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:visibility="gone" />
+
+                            <TextView
+                                android:id="@+id/center_media_title"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center"
+                                android:text="No Media"
+                                android:textColor="@color/bmw_white"
+                                android:textSize="12.5sp"
+                                android:textStyle="bold"
+                                android:singleLine="true"
+                                android:ellipsize="marquee"
+                                android:marqueeRepeatLimit="marquee_forever"
+                                android:scrollHorizontally="true"
+                                android:focusable="false"
+                                android:visibility="visible" />
+
+                            <TextView
+                                android:id="@+id/center_media_artist"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:paddingStart="12dp"
+                                android:paddingEnd="12dp"
+                                android:gravity="center"
+                                android:text="Selectează o piesă..."
+                                android:textColor="@color/bmw_amber"
+                                android:textSize="10.5sp"
+                                android:singleLine="true"
+                                android:ellipsize="end"
+                                android:visibility="visible" />
+                        </LinearLayout>
                     </LinearLayout>
 
                     <View
@@ -699,13 +739,13 @@
                         android:focusable="false"
                         android:visibility="gone" />
 
-                    <!-- Discreet Active Player Badge Overlay -->
+                    <!-- Discreet Active Player Badge Overlay (Mutat in partea de sus a cercului) -->
                     <LinearLayout
                         android:id="@+id/center_media_player_badge"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_gravity="bottom|center_horizontal"
-                        android:layout_marginBottom="26dp"
+                        android:layout_gravity="top|center_horizontal"
+                        android:layout_marginTop="14dp"
                         android:background="@drawable/bg_center_media_player_badge"
                         android:clickable="true"
                         android:focusable="false"
