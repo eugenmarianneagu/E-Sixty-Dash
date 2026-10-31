@@ -1973,13 +1973,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Butoane Volum Jos
-        btnVolumeDown.setOnClickListener {
-            adjustVolume(AudioManager.ADJUST_LOWER)
-        }
-        btnVolumeUp.setOnClickListener {
-            adjustVolume(AudioManager.ADJUST_RAISE)
-        }
+        // Butoane Volum Jos (dezactivate conform E-Sixty Dash)
+        btnVolumeDown.visibility = View.GONE
+        btnVolumeUp.visibility = View.GONE
 
         val openCurrentMediaApp = View.OnClickListener {
             if (activeMediaSource == ActiveMediaSource.LOCAL_PLAYER) {
@@ -2024,10 +2020,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.pill_status_right)?.setOnClickListener(openCurrentMediaApp)
         centerMediaPlayerBadge.setOnClickListener(openCurrentMediaApp)
 
-        // Night Mode / Settings / Auto Brightness
-        btnNightMode.setOnClickListener {
-            cycleBrightnessMode(showToast = true)
-        }
+        // Night Mode / Auto Brightness dezactivat conform E-Sixty Dash
+        btnNightMode.visibility = View.GONE
         btnQuickSettings.setOnClickListener {
             showSettingsOverlay()
         }
@@ -4846,61 +4840,36 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyScreenBrightness(mode: BrightnessMode = currentBrightnessMode) {
+        // Funcția de iluminare / luminozitate este dezactivată în E-Sixty Dash
         val lp = window.attributes
-        when (mode) {
-            BrightnessMode.AUTO -> {
-                lp.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
-            }
-            BrightnessMode.NIGHT -> {
-                val prefs = getSharedPreferences("agama_settings", Context.MODE_PRIVATE)
-                val nightPercent = prefs.getInt("night_brightness", 10).coerceIn(5, 100)
-                lp.screenBrightness = (nightPercent / 100f).coerceIn(0.05f, 1.0f)
-            }
-            BrightnessMode.DAY -> {
-                val prefs = getSharedPreferences("agama_settings", Context.MODE_PRIVATE)
-                val dayPercent = prefs.getInt("day_brightness", 90).coerceIn(5, 100)
-                lp.screenBrightness = (dayPercent / 100f).coerceIn(0.05f, 1.0f)
-            }
-        }
+        lp.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
         window.attributes = lp
     }
 
     private fun setNightMode(night: Boolean, showToast: Boolean = true) {
-        setBrightnessMode(if (night) BrightnessMode.NIGHT else BrightnessMode.DAY, showToast)
+        // Dezactivat
     }
 
     private fun applyScreenBrightness(night: Boolean) {
-        applyScreenBrightness(if (night) BrightnessMode.NIGHT else BrightnessMode.DAY)
+        // Dezactivat
     }
 
 
     private fun adjustVolume(direction: Int) {
-        try {
-            val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
-            audioManager.adjustStreamVolume(
-                AudioManager.STREAM_MUSIC,
-                direction,
-                AudioManager.FLAG_SHOW_UI or AudioManager.FLAG_PLAY_SOUND
-            )
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Eroare reglare volum: ${e.message}")
-        }
+        // Funcțiile de volum sunt dezactivate în E-Sixty Dash
     }
 
     private val focusOrderViews: List<View> by lazy {
         listOf(
             btnLeft1,        // 1. Radio (Stanga-Sus)
             btnLeft3,        // 2. Music (Stanga-Jos)
-            btnVolumeDown,   // 3. Volum - (Cercul 3)
-            btnPrevTrack,    // 4. Prev
-            btnPlayPause,    // 5. Play
-            btnNextTrack,    // 6. Next
-            btnVolumeUp,     // 7. Volum + (Cercul 4)
-            btnLeft2,        // 8. Navigatie (Dreapta-Jos)
-            btnRight1,       // 9. Telefon (Dreapta-Sus)
-            centerCircle,    // 10. Cerc Central
-            btnNightMode,    // 11. Day/Night (Cercul 5)
-            btnQuickSettings // 12. Setari (Cercul 6)
+            btnPrevTrack,    // 3. Prev
+            btnPlayPause,    // 4. Play
+            btnNextTrack,    // 5. Next
+            btnQuickSettings,// 6. Setari (Cercul Dreapta-Jos)
+            btnLeft2,        // 7. Navigatie (Dreapta-Jos)
+            btnRight1,       // 8. Telefon (Dreapta-Sus)
+            centerCircle     // 9. Cerc Central
         )
     }
 

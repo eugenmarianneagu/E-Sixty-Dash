@@ -388,11 +388,12 @@
             app:layout_constraintStart_toEndOf="@id/gl_pill_left_start"
             app:layout_constraintEnd_toStartOf="@id/gl_pill_left_end">
 
-            <!-- Indicator Sateliti GPS -->
+            <!-- Indicator Sateliti GPS (dezactivat) -->
             <LinearLayout
                 android:id="@+id/container_gps_satellites"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:visibility="gone"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
@@ -418,7 +419,7 @@
                 android:id="@+id/bottom_battery_icon"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="20dp"
+                android:layout_marginStart="0dp"
                 android:text="⚡ 88%"
                 android:textColor="@color/bmw_amber"
                 android:textSize="15sp"
@@ -522,8 +523,8 @@
             android:focusable="true"
             android:nextFocusUp="@+id/btn_left_1"
             android:nextFocusRight="@+id/center_circle"
-            android:nextFocusDown="@+id/btn_volume_down"
-            android:nextFocusForward="@+id/btn_volume_down"
+            android:nextFocusDown="@+id/btn_prev_track"
+            android:nextFocusForward="@+id/btn_prev_track"
             app:isRightSide="false"
             app:bandPosition="2"
             app:buttonMask="@drawable/ic_mask_music"
@@ -559,7 +560,7 @@
             android:focusable="true"
             android:nextFocusUp="@+id/btn_right_1"
             android:nextFocusLeft="@+id/center_circle"
-            android:nextFocusDown="@+id/btn_volume_up"
+            android:nextFocusDown="@+id/btn_quick_settings"
             android:nextFocusForward="@+id/btn_right_1"
             app:isRightSide="true"
             app:bandPosition="2"
@@ -1468,6 +1469,7 @@
             android:id="@+id/circle_btn_1"
             android:layout_width="0dp"
             android:layout_height="0dp"
+            android:visibility="gone"
             android:background="@drawable/bg_ripple_circle"
             android:clickable="false"
             android:focusable="false"
@@ -1482,6 +1484,7 @@
             android:id="@+id/circle_btn_2"
             android:layout_width="0dp"
             android:layout_height="0dp"
+            android:visibility="gone"
             android:background="@drawable/bg_ripple_circle"
             android:clickable="false"
             android:focusable="false"
@@ -1491,14 +1494,15 @@
             app:layout_constraintStart_toEndOf="@id/gl_c2_start"
             app:layout_constraintEnd_toStartOf="@id/gl_c2_end" />
 
-        <!-- Cercul 3 (Stânga 3 - Volum -) -->
+        <!-- Cercul 3 (Stânga 3 - Volum - dezactivat) -->
         <ImageView
             android:id="@+id/btn_volume_down"
             android:layout_width="0dp"
             android:layout_height="0dp"
+            android:visibility="gone"
             android:background="@drawable/bg_ripple_circle"
-            android:clickable="true"
-            android:focusable="true"
+            android:clickable="false"
+            android:focusable="false"
             android:padding="16dp"
             android:scaleType="fitCenter"
             android:src="@drawable/ic_volume_down"
@@ -1508,14 +1512,15 @@
             app:layout_constraintStart_toEndOf="@id/gl_c3_start"
             app:layout_constraintEnd_toStartOf="@id/gl_c3_end" />
 
-        <!-- Cercul 4 (Dreapta 1 - Volum +) -->
+        <!-- Cercul 4 (Dreapta 1 - Volum + dezactivat) -->
         <ImageView
             android:id="@+id/btn_volume_up"
             android:layout_width="0dp"
             android:layout_height="0dp"
+            android:visibility="gone"
             android:background="@drawable/bg_ripple_circle"
-            android:clickable="true"
-            android:focusable="true"
+            android:clickable="false"
+            android:focusable="false"
             android:padding="16dp"
             android:scaleType="fitCenter"
             android:src="@drawable/ic_volume_up"
@@ -1525,15 +1530,15 @@
             app:layout_constraintStart_toEndOf="@id/gl_c4_start"
             app:layout_constraintEnd_toStartOf="@id/gl_c4_end" />
 
-        <!-- Cercul 5 (Dreapta 2 - Toggle Day/Night) -->
+        <!-- Cercul 5 (Dreapta 2 - Toggle Day/Night dezactivat) -->
         <ImageView
             android:id="@+id/btn_night_mode"
             android:layout_width="0dp"
             android:layout_height="0dp"
+            android:visibility="gone"
             android:background="@drawable/bg_ripple_circle"
-            android:clickable="true"
-            android:focusable="true"
-            android:nextFocusForward="@+id/btn_quick_settings"
+            android:clickable="false"
+            android:focusable="false"
             android:padding="16dp"
             android:scaleType="fitCenter"
             android:src="@drawable/ic_moon"
