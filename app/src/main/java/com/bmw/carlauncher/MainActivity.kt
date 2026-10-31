@@ -2463,13 +2463,14 @@ class MainActivity : AppCompatActivity() {
         centerMediaThumbnail.setPadding(0, 0, 0, 0)
         centerMediaThumbnail.scaleType = ImageView.ScaleType.CENTER_CROP
         centerMediaThumbnail.setBackgroundColor(Color.TRANSPARENT)
+        centerMediaThumbnail.alpha = 0.58f
         if (bmp != null) {
             centerMediaThumbnail.setImageBitmap(bmp)
         } else {
             centerMediaThumbnail.setImageResource(R.drawable.ic_no_player_active)
         }
         centerMediaThumbnail.visibility = View.VISIBLE
-        centerMediaScrim.visibility = View.GONE
+        centerMediaScrim.visibility = View.VISIBLE
         centerMediaInfoContainer.visibility = View.VISIBLE
     }
 
@@ -2477,6 +2478,7 @@ class MainActivity : AppCompatActivity() {
         if (!::centerMediaThumbnail.isInitialized) return
         centerMediaThumbnail.setBackgroundResource(R.drawable.bg_circle_clip)
         centerMediaThumbnail.scaleType = ImageView.ScaleType.FIT_CENTER
+        centerMediaThumbnail.alpha = 0.58f
         val artBytes = ctrl?.mediaMetadata?.artworkData
         val bmp = if (artBytes != null) BitmapFactory.decodeByteArray(artBytes, 0, artBytes.size) else null
         if (bmp != null) {
@@ -2493,7 +2495,7 @@ class MainActivity : AppCompatActivity() {
             centerMediaThumbnail.setImageResource(R.drawable.ic_gauge_radio)
         }
         centerMediaThumbnail.visibility = View.VISIBLE
-        centerMediaScrim.visibility = View.GONE
+        centerMediaScrim.visibility = View.VISIBLE
         centerMediaInfoContainer.visibility = View.VISIBLE
     }
 

@@ -5,9 +5,9 @@
         <shape android:shape="rectangle">
             <gradient
                 android:angle="270"
-                android:startColor="#A60A0B0F"
-                android:centerColor="#BF08090C"
-                android:endColor="#D9050608" />
+                android:startColor="#BF0A0B0F"
+                android:centerColor="#D908090C"
+                android:endColor="#F0050608" />
         </shape>
     </item>
     <!-- Linie fina de accent BMW Amber la marginea de sus a barii -->
@@ -18,7 +18,7 @@
         <shape android:shape="rectangle">
             <stroke
                 android:width="1dp"
-                android:color="#55FF7200" />
+                android:color="#66FF7200" />
             <solid android:color="@android:color/transparent" />
         </shape>
     </item>
