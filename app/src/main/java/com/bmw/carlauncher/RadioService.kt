@@ -359,7 +359,7 @@ class RadioService : MediaSessionService() {
 
         // Pre-încarcă asincron în fundal siglele pentru toate celelalte posturi din listă
         stations.forEachIndexed { i, st ->
-            if (i != lastIndex && st.logoUrl.isNotBlank() && !artworkCache.containsKey(i)) {
+            if (i != lastIndex && st.logoUrl.isNotBlank()) {
                 fetchOrGenerateLogo(i, st)
             }
         }
