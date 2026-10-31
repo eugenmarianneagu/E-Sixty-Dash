@@ -1,16 +1,20 @@
 package com.bmw.carlauncher
 
 import android.bluetooth.BluetoothA2dp
+import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothProfile
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.media.AudioManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Log
+import android.view.KeyEvent
 
 class ReturnHomeReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -41,15 +45,25 @@ class ReturnHomeReceiver : BroadcastReceiver() {
                 @Suppress("DEPRECATION")
                 intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
             }
-            val devName = try { device?.name } catch (_: SecurityException) { null } ?: ""
+            var devName = try { device?.name } catch (_: SecurityException) { null } ?: ""
             val devAddress = device?.address ?: ""
+            if (devName.isEmpty() && devAddress.isNotEmpty()) {
+                devName = try {
+                    BluetoothAdapter.getDefaultAdapter()?.getRemoteDevice(devAddress)?.name ?: ""
+                } catch (_: Exception) { "" }
+            }
             Log.i(TAG, "Bluetooth device connected ($action): '$devName', address=$devAddress")
 
             val savedCarBt = prefs.getString("car_bt_address", null)
+            val isEsp32Mac = devAddress.equals("AC:A7:04:13:3D:59", ignoreCase = true)
             val isTargetDevice = if (!savedCarBt.isNullOrEmpty()) {
                 devAddress.equals(savedCarBt, ignoreCase = true) ||
-                devName.contains("BMW iDrive", ignoreCase = true)
+                isEsp32Mac ||
+                devName.contains("BMW", ignoreCase = true) ||
+                devName.contains("iDrive", ignoreCase = true) ||
+                devName.contains("ESP32", ignoreCase = true)
             } else {
+                isEsp32Mac ||
                 devName.contains("BMW", ignoreCase = true) ||
                 devName.contains("iDrive", ignoreCase = true) ||
                 devName.contains("ESP32", ignoreCase = true)
@@ -68,34 +82,82 @@ class ReturnHomeReceiver : BroadcastReceiver() {
             }
             lastConnectHandledTimestamp = now
 
+            val pendingResult = try { goAsync() } catch (_: Exception) { null }
+
+            // Menține procesorul activ temporar pentru a permite pornirea redării dacă telefonul este blocat
+            try {
+                val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+                val wl = pm?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "BMW:ConnectWakeLock")
+                wl?.acquire(3500L)
+            } catch (_: Exception) {}
+
             Log.i(TAG, "Dispozitiv mașină detectat ($devAddress)! Pornire muzică și aducere în prim-plan...")
             MainActivity.lastDisconnectTimestamp = 0L
             prefs.edit().remove("last_disconnect_elapsed_time").apply()
             MainActivity.isCarConnectedState = true
 
-            // A. Pornește redarea radio / muzică
-            try {
-                val radioIntent = Intent(context, RadioService::class.java).apply {
-                    this.action = RadioService.ACTION_START_PLAY
+            // A. Pornește redarea radio / muzică în funcție de ultima sursă activă
+            val lastSource = prefs.getString("last_active_media_source", "RADIO") ?: "RADIO"
+            Log.i(TAG, "Reluare muzică la conectare (telefon blocat/deblocat), sursa: $lastSource")
+
+            if (lastSource == "LOCAL_PLAYER") {
+                // Menține serviciul în prim-plan pentru a preveni înghețarea de către Android 14 când telefonul e blocat
+                try {
+                    val standbyIntent = Intent(context, RadioService::class.java).apply {
+                        this.action = RadioService.ACTION_RESTART_STANDBY
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        context.startForegroundService(standbyIntent)
+                    } else {
+                        context.startService(standbyIntent)
+                    }
+                } catch (_: Exception) {}
+
+                try {
+                    LocalMusicPlayer.playOrResumeLastTrack(context)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Eroare la reluare LocalMusicPlayer: ${e.message}")
                 }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(radioIntent)
-                } else {
-                    context.startService(radioIntent)
+            } else if (lastSource == "EXTERNAL_APP") {
+                try {
+                    val am = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+                    am?.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY))
+                    am?.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY))
+                } catch (_: Exception) {}
+            } else {
+                // RadioService (implicit)
+                try {
+                    val radioIntent = Intent(context, RadioService::class.java).apply {
+                        this.action = RadioService.ACTION_START_PLAY
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        context.startForegroundService(radioIntent)
+                    } else {
+                        context.startService(radioIntent)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Eroare la pornirea RadioService: ${e.message}")
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Eroare la pornirea RadioService: ${e.message}")
             }
 
             // B. Notifică instanța dacă e deja activă
             MainActivity.instance?.let { act ->
                 act.runOnUiThread {
-                    act.startRadioPlayback()
+                    act.applyShowWhenLocked(true)
+                    act.resumeMusicPlayback()
                 }
             }
 
-            // C. Aduce aplicația în prim-plan
+            // C. Aduce aplicația în prim-plan (peste ecranul de blocare)
             BMWAccessibilityService.bringToForeground(context)
+
+            if (pendingResult != null) {
+                Handler(Looper.getMainLooper()).postDelayed({
+                    try {
+                        pendingResult.finish()
+                    } catch (_: Exception) {}
+                }, 2000L)
+            }
             return
         }
 
@@ -123,12 +185,17 @@ class ReturnHomeReceiver : BroadcastReceiver() {
             Log.i(TAG, "Bluetooth device disconnected ($action): '$devName', address=$devAddress")
 
             val savedCarBt = prefs.getString("car_bt_address", null)
+            val isEsp32Mac = devAddress.equals("AC:A7:04:13:3D:59", ignoreCase = true)
             val isTargetDevice = if (isBtOff) {
                 true
             } else if (!savedCarBt.isNullOrEmpty()) {
                 devAddress.equals(savedCarBt, ignoreCase = true) ||
-                devName.contains("BMW iDrive", ignoreCase = true)
+                isEsp32Mac ||
+                devName.contains("BMW", ignoreCase = true) ||
+                devName.contains("iDrive", ignoreCase = true) ||
+                devName.contains("ESP32", ignoreCase = true)
             } else {
+                isEsp32Mac ||
                 devName.contains("BMW", ignoreCase = true) ||
                 devName.contains("iDrive", ignoreCase = true) ||
                 devName.contains("ESP32", ignoreCase = true)
@@ -149,7 +216,16 @@ class ReturnHomeReceiver : BroadcastReceiver() {
             Log.i(TAG, "Dispozitiv țintă deconectat ($devAddress)! Oprire muzică, curățare Recents și blocare telefon...")
             MainActivity.isCarConnectedState = false
             MainActivity.lastDisconnectTimestamp = now
-            prefs.edit().putLong("last_disconnect_elapsed_time", now).apply()
+
+            val lastSource = when {
+                LocalMusicPlayer.isPlaying -> "LOCAL_PLAYER"
+                MainActivity.instance?.isRadioPlaying() == true -> "RADIO"
+                else -> prefs.getString("last_active_media_source", "RADIO") ?: "RADIO"
+            }
+            prefs.edit()
+                .putLong("last_disconnect_elapsed_time", now)
+                .putString("last_active_media_source", lastSource)
+                .apply()
 
             // A. Oprește radioul / muzica la deconectare
             try {

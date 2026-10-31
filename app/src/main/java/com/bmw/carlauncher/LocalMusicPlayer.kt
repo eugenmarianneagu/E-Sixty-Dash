@@ -80,6 +80,7 @@ object LocalMusicPlayer {
                 true // handleAudioFocus = true
             )
             .setHandleAudioBecomingNoisy(true)
+            .setWakeMode(C.WAKE_MODE_LOCAL)
             .build()
 
         player.repeatMode = Player.REPEAT_MODE_ALL
@@ -531,6 +532,16 @@ object LocalMusicPlayer {
     }
 
     private fun notifyPlaybackStateChanged(isPlaying: Boolean) {
+        if (isPlaying) {
+            appContext?.let { ctx ->
+                try {
+                    ctx.getSharedPreferences("agama_settings", Context.MODE_PRIVATE)
+                        .edit()
+                        .putString("last_active_media_source", "LOCAL_PLAYER")
+                        .apply()
+                } catch (_: Exception) {}
+            }
+        }
         mainHandler.post {
             for (listener in listeners) {
                 try {

@@ -151,6 +151,12 @@ class RadioService : MediaSessionService() {
                         player.stop()
                     }
                 } else {
+                    try {
+                        getSharedPreferences("agama_settings", Context.MODE_PRIVATE)
+                            .edit()
+                            .putString("last_active_media_source", "RADIO")
+                            .apply()
+                    } catch (_: Exception) {}
                     // Când se reia redarea și playerul a fost oprit (STATE_IDLE), reîncărcăm poziția live curentă
                     if (player.playbackState == Player.STATE_IDLE && player.mediaItemCount > 0) {
                         player.seekTo(player.currentMediaItemIndex, C.TIME_UNSET)
@@ -247,11 +253,18 @@ class RadioService : MediaSessionService() {
         ensureForegroundStandby()
 
         if (intent?.action == ACTION_START_PLAY) {
+            try {
+                getSharedPreferences("agama_settings", Context.MODE_PRIVATE)
+                    .edit()
+                    .putString("last_active_media_source", "RADIO")
+                    .apply()
+            } catch (_: Exception) {}
             if (player.mediaItemCount == 0) {
                 loadPlaylist(autoPlay = true)
             } else {
                 player.playWhenReady = true
                 if (player.playbackState == Player.STATE_IDLE) {
+                    player.seekTo(player.currentMediaItemIndex, C.TIME_UNSET)
                     player.prepare()
                 }
                 player.play()

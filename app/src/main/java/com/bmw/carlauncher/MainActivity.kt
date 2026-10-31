@@ -242,7 +242,8 @@ class MainActivity : AppCompatActivity() {
 
     // Media Controller & Stations
     private var controllerFuture: ListenableFuture<MediaController>? = null
-    private var controller: MediaController? = null
+    var controller: MediaController? = null
+    fun isRadioPlaying(): Boolean = controller?.isPlaying == true
     private var stations = mutableListOf<RadioStation>()
 
     // Top Bar elements
@@ -436,7 +437,16 @@ class MainActivity : AppCompatActivity() {
         lastDisconnectTimestamp = now
         try {
             val prefs = getSharedPreferences("agama_settings", Context.MODE_PRIVATE)
-            prefs.edit().putLong("last_disconnect_elapsed_time", now).apply()
+            val lastSource = when {
+                LocalMusicPlayer.isPlaying -> "LOCAL_PLAYER"
+                controller?.isPlaying == true -> "RADIO"
+                ExternalMediaManager.currentData.isPlaying -> "EXTERNAL_APP"
+                else -> activeMediaSource.name
+            }
+            prefs.edit()
+                .putLong("last_disconnect_elapsed_time", now)
+                .putString("last_active_media_source", lastSource)
+                .apply()
         } catch (_: Exception) {}
         ExternalMediaManager.cancelAutoReturn()
         stopAllAudioPlayers()
@@ -469,14 +479,24 @@ class MainActivity : AppCompatActivity() {
                 intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
             }
             val devAddress = device?.address ?: ""
-            val devName = try { device?.name } catch (_: SecurityException) { null } ?: ""
+            var devName = try { device?.name } catch (_: SecurityException) { null } ?: ""
+            if (devName.isEmpty() && devAddress.isNotEmpty()) {
+                devName = try {
+                    BluetoothAdapter.getDefaultAdapter()?.getRemoteDevice(devAddress)?.name ?: ""
+                } catch (_: Exception) { "" }
+            }
 
             val prefs = getSharedPreferences("agama_settings", Context.MODE_PRIVATE)
             val savedCarAddress = prefs.getString("car_bt_address", null)
+            val isEsp32Mac = devAddress.equals("AC:A7:04:13:3D:59", ignoreCase = true)
             val isCarDevice = if (!savedCarAddress.isNullOrEmpty()) {
                 devAddress.equals(savedCarAddress, ignoreCase = true) ||
-                devName.contains("BMW iDrive", ignoreCase = true)
+                isEsp32Mac ||
+                devName.contains("BMW", ignoreCase = true) ||
+                devName.contains("iDrive", ignoreCase = true) ||
+                devName.contains("ESP32", ignoreCase = true)
             } else {
+                isEsp32Mac ||
                 devName.contains("BMW", ignoreCase = true) ||
                 devName.contains("iDrive", ignoreCase = true) ||
                 devName.contains("ESP32", ignoreCase = true)
@@ -496,7 +516,8 @@ class MainActivity : AppCompatActivity() {
                         lastDisconnectTimestamp = 0L
                         prefs.edit().remove("last_disconnect_elapsed_time").apply()
                         isCarConnectedState = true
-                        startRadioPlayback()
+                        applyShowWhenLocked(true)
+                        resumeMusicPlayback()
                         BMWAccessibilityService.bringToForeground(this@MainActivity)
                     } else if (isCarDevice && state == BluetoothProfile.STATE_DISCONNECTED) {
                         handleCarDisconnected("PROFILE_DISCONNECTED ($action): $devName")
@@ -509,7 +530,8 @@ class MainActivity : AppCompatActivity() {
                         lastDisconnectTimestamp = 0L
                         prefs.edit().remove("last_disconnect_elapsed_time").apply()
                         isCarConnectedState = true
-                        startRadioPlayback()
+                        applyShowWhenLocked(true)
+                        resumeMusicPlayback()
                         BMWAccessibilityService.bringToForeground(this@MainActivity)
                     }
                 }
@@ -519,7 +541,8 @@ class MainActivity : AppCompatActivity() {
                         lastDisconnectTimestamp = 0L
                         prefs.edit().remove("last_disconnect_elapsed_time").apply()
                         isCarConnectedState = true
-                        startRadioPlayback()
+                        applyShowWhenLocked(true)
+                        resumeMusicPlayback()
                         BMWAccessibilityService.bringToForeground(this@MainActivity)
                     }
                 }
@@ -681,8 +704,9 @@ class MainActivity : AppCompatActivity() {
             closeLauncher()
             return
         }
-        if (intent.getBooleanExtra("EXTRA_CAR_BT_CONNECTED", false)) {
-            startRadioPlayback()
+        if (intent.getBooleanExtra("EXTRA_CAR_BT_CONNECTED", false) || isCarConnectedState) {
+            applyShowWhenLocked(true)
+            resumeMusicPlayback()
         }
         checkAndRequestPhonePermissions()
         setupCallServiceListener()
@@ -3691,22 +3715,61 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) {}
     }
 
-    fun clearShowWhenLocked() {
+    fun applyShowWhenLocked(show: Boolean) {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-                setShowWhenLocked(false)
-                setTurnScreenOn(false)
+                setShowWhenLocked(show)
+                setTurnScreenOn(show)
             } else {
                 @Suppress("DEPRECATION")
-                window.clearFlags(
-                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
-                    WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
-                )
+                if (show) {
+                    window.addFlags(
+                        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                        WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+                    )
+                } else {
+                    window.clearFlags(
+                        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                        WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+                    )
+                }
             }
-            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            if (show) {
+                window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            } else {
+                window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
         } catch (e: Exception) {
-            Log.w("MainActivity", "clearShowWhenLocked warning: ${e.message}")
+            Log.w("MainActivity", "applyShowWhenLocked($show) warning: ${e.message}")
+        }
+    }
+
+    fun clearShowWhenLocked() {
+        applyShowWhenLocked(false)
+    }
+
+    fun resumeMusicPlayback() {
+        try {
+            val prefs = getSharedPreferences("agama_settings", Context.MODE_PRIVATE)
+            val lastSource = prefs.getString("last_active_media_source", "RADIO") ?: "RADIO"
+            Log.i("MainActivity", "resumeMusicPlayback(): sursa=$lastSource")
+
+            if (lastSource == "LOCAL_PLAYER") {
+                if (!LocalMusicPlayer.isPlaying) {
+                    LocalMusicPlayer.playOrResumeLastTrack(this)
+                }
+                activeMediaSource = ActiveMediaSource.LOCAL_PLAYER
+            } else if (lastSource == "EXTERNAL_APP") {
+                ExternalMediaManager.getActiveMusicController(this)?.transportControls?.play()
+                activeMediaSource = ActiveMediaSource.EXTERNAL_APP
+            } else {
+                activeMediaSource = ActiveMediaSource.RADIO
+                startRadioPlayback()
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Eroare la resumeMusicPlayback: ${e.message}", e)
         }
     }
 
@@ -4356,12 +4419,13 @@ class MainActivity : AppCompatActivity() {
             closeLauncher()
             return
         }
-        if (intent.getBooleanExtra("EXTRA_CAR_BT_CONNECTED", false)) {
-            Log.i("MainActivity", "onNewIntent: EXTRA_CAR_BT_CONNECTED primit, trecere in mod masina si pornire radio")
+        if (intent.getBooleanExtra("EXTRA_CAR_BT_CONNECTED", false) || isCarConnectedState) {
+            Log.i("MainActivity", "onNewIntent: conectare la mașină, activare mod afișare peste lockscreen și pornire muzică")
             isCarConnectedState = true
             lastDisconnectTimestamp = 0L
+            applyShowWhenLocked(true)
             checkBluetoothConnectionAndUpdateOrientation()
-            startRadioPlayback()
+            resumeMusicPlayback()
         }
         if (intent.getBooleanExtra("EXTRA_F12_RETURN", false)) {
             Log.i("MainActivity", "onNewIntent: EXTRA_F12_RETURN primit! Revenire la ecranul principal BMW...")
@@ -4406,6 +4470,9 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         isInForeground = true
+        if (isCarConnectedState) {
+            applyShowWhenLocked(true)
+        }
         currentTaskId = taskId
         ExternalMediaManager.cancelAutoReturn()
         ExternalMediaManager.syncActiveSessions(this)

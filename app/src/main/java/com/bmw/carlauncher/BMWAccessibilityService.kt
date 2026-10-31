@@ -99,6 +99,7 @@ class BMWAccessibilityService : AccessibilityService() {
                 action = Intent.ACTION_MAIN
                 addCategory(Intent.CATEGORY_LAUNCHER)
                 putExtra("EXTRA_F12_RETURN", true)
+                putExtra("EXTRA_CAR_BT_CONNECTED", true)
                 addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
@@ -113,6 +114,7 @@ class BMWAccessibilityService : AccessibilityService() {
                 val fallback = packageManager.getLaunchIntentForPackage(packageName)
                 fallback?.apply {
                     putExtra("EXTRA_F12_RETURN", true)
+                    putExtra("EXTRA_CAR_BT_CONNECTED", true)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
                 }
                 if (fallback != null) {
@@ -249,6 +251,7 @@ class BMWAccessibilityService : AccessibilityService() {
                         action = Intent.ACTION_MAIN
                         addCategory(Intent.CATEGORY_LAUNCHER)
                         putExtra("EXTRA_F12_RETURN", true)
+                        putExtra("EXTRA_CAR_BT_CONNECTED", true)
                         addFlags(
                             Intent.FLAG_ACTIVITY_NEW_TASK or
                             Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
