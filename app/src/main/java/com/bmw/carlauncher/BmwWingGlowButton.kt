@@ -150,7 +150,7 @@ class BmwWingGlowButton @JvmOverloads constructor(
         // Modul Normal (glowProgress < 1.0f):
         // Textul este alb-murdar / gri-deschis (#E0E0E0) cu opacitate 85% (~217 alpha).
         // Fără glow / umbră.
-        if (glowProgress < 1.0f) {
+        if (false && glowProgress < 1.0f) {
             val normalAlpha = ((1.0f - glowProgress) * 217).toInt()
             normalPaint.colorFilter = PorterDuffColorFilter(colorNormal, PorterDuff.Mode.SRC_IN)
             normalPaint.alpha = normalAlpha

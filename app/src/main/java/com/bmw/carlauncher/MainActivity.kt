@@ -3908,6 +3908,17 @@ class MainActivity : AppCompatActivity() {
             if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED) {
                 showRecentCallsOverlay()
             }
+            // Daca permisiunea muzicii a fost acordata acum, re-scanam biblioteca audio
+            val audioPermGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED
+            } else {
+                ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+            }
+            if (audioPermGranted) {
+                Thread {
+                    LocalMusicManager.scanDeviceTracks(this)
+                }.start()
+            }
         }
     }
 
@@ -4878,11 +4889,18 @@ class MainActivity : AppCompatActivity() {
 
     private val focusOrderViews: List<View> by lazy {
         listOf(
-            btnLeft1,     // 1. Radio (Sus)
-            btnLeft2,     // 2. Navigatie (Dreapta)
-            btnLeft3,     // 3. Music (Jos)
-            btnRight1,    // 4. Telefon (Stanga)
-            centerCircle  // 5. Cerc Central
+            btnLeft1,        // 1. Radio (Stanga-Sus)
+            btnLeft3,        // 2. Music (Stanga-Jos)
+            btnVolumeDown,   // 3. Volum - (Cercul 3)
+            btnPrevTrack,    // 4. Prev
+            btnPlayPause,    // 5. Play
+            btnNextTrack,    // 6. Next
+            btnVolumeUp,     // 7. Volum + (Cercul 4)
+            btnLeft2,        // 8. Navigatie (Dreapta-Jos)
+            btnRight1,       // 9. Telefon (Dreapta-Sus)
+            centerCircle,    // 10. Cerc Central
+            btnNightMode,    // 11. Day/Night (Cercul 5)
+            btnQuickSettings // 12. Setari (Cercul 6)
         )
     }
 
@@ -5976,6 +5994,16 @@ class MainActivity : AppCompatActivity() {
         }
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
             permissions.add(android.Manifest.permission.CALL_PHONE)
+        }
+        // Permisiune muzica locala: READ_MEDIA_AUDIO (Android 13+) sau READ_EXTERNAL_STORAGE (Android <= 12)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_MEDIA_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(android.Manifest.permission.READ_MEDIA_AUDIO)
+            }
+        } else {
+            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+            }
         }
         if (permissions.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, permissions.toTypedArray(), 2001)

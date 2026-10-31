@@ -97,7 +97,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            app:layout_constraintGuide_percent="0.415" />
+            app:layout_constraintGuide_percent="0.487" />
 
         <androidx.constraintlayout.widget.Guideline
             android:id="@+id/gl_row_mid_top"
@@ -118,14 +118,14 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            app:layout_constraintGuide_percent="0.575" />
+            app:layout_constraintGuide_percent="0.513" />
 
         <androidx.constraintlayout.widget.Guideline
             android:id="@+id/gl_row_bot_bottom"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            app:layout_constraintGuide_percent="0.715" />
+            app:layout_constraintGuide_percent="0.725" />
 
         <!-- Main Buttons Vertical Columns -->
         <androidx.constraintlayout.widget.Guideline
@@ -190,28 +190,28 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            app:layout_constraintGuide_percent="0.354" />
+            app:layout_constraintGuide_percent="0.353" />
 
         <androidx.constraintlayout.widget.Guideline
             android:id="@+id/gl_center_circle_end"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            app:layout_constraintGuide_percent="0.646" />
+            app:layout_constraintGuide_percent="0.647" />
 
         <androidx.constraintlayout.widget.Guideline
             android:id="@+id/gl_center_circle_top"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            app:layout_constraintGuide_percent="0.172" />
+            app:layout_constraintGuide_percent="0.160" />
 
         <androidx.constraintlayout.widget.Guideline
             android:id="@+id/gl_center_circle_bottom"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            app:layout_constraintGuide_percent="0.828" />
+            app:layout_constraintGuide_percent="0.816" />
 
         <!-- Lower 6 Circles (Y: 80.5% -> 95.5%) -->
         <androidx.constraintlayout.widget.Guideline
@@ -383,7 +383,6 @@
             android:gravity="center"
             android:paddingStart="16dp"
             android:paddingEnd="16dp"
-            android:visibility="gone"
             app:layout_constraintTop_toBottomOf="@id/gl_top_pill_top"
             app:layout_constraintBottom_toTopOf="@id/gl_top_pill_bottom"
             app:layout_constraintStart_toEndOf="@id/gl_pill_left_start"
@@ -431,7 +430,6 @@
             android:id="@+id/text_clock"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:visibility="gone"
             android:text="14:45"
             android:textColor="@color/bmw_white"
             android:textSize="20sp"
@@ -453,7 +451,6 @@
             android:id="@+id/pill_status_right"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:visibility="gone"
             android:orientation="vertical"
             android:gravity="center"
             android:paddingStart="16dp"
@@ -493,73 +490,84 @@
 
 
         <!-- ============================================================== -->
-        <!-- 4. CELE 5 BUTOANE PRINCIPALE E-SIXTY DASH                      -->
-        <!-- Sus: RADIO | Jos: MUSIC | Stânga: TELEFON | Dreapta: NAVIGATIE -->
+        <!-- 4. CELE 4 BUTOANE LATERALE PRINCIPALE                          -->
+        <!-- Stânga: RADIO (sus), MUSIC (jos)                               -->
+        <!-- Dreapta: TELEFON (sus), NAVIGATIE (jos)                        -->
         <!-- ============================================================== -->
 
-        <!-- Sus: RADIO -->
-        <FrameLayout
+        <!-- Stânga-Sus: RADIO -->
+        <com.bmw.carlauncher.BmwWingGlowButton
             android:id="@+id/btn_left_1"
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:clickable="true"
             android:focusable="true"
-            android:background="@drawable/bg_e60_btn_selector"
-            android:nextFocusDown="@+id/center_circle"
-            android:nextFocusLeft="@+id/btn_right_1"
-            android:nextFocusRight="@+id/btn_left_2"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toTopOf="@id/center_circle"
-            app:layout_constraintStart_toStartOf="@id/gl_center_circle_start"
-            app:layout_constraintEnd_toEndOf="@id/gl_center_circle_end" />
+            android:nextFocusDown="@+id/btn_left_3"
+            android:nextFocusRight="@+id/center_circle"
+            android:nextFocusForward="@+id/btn_left_3"
+            app:isRightSide="false"
+            app:bandPosition="0"
+            app:buttonMask="@drawable/ic_mask_radio"
+            app:layout_constraintTop_toBottomOf="@id/gl_row_top_top"
+            app:layout_constraintBottom_toTopOf="@id/gl_row_top_bottom"
+            app:layout_constraintStart_toEndOf="@id/gl_btn_left_outer_start"
+            app:layout_constraintEnd_toStartOf="@id/gl_btn_left_outer_end" />
 
-        <!-- Jos: MUSIC -->
-        <FrameLayout
+        <!-- Stânga-Jos: MUSIC -->
+        <com.bmw.carlauncher.BmwWingGlowButton
             android:id="@+id/btn_left_3"
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:clickable="true"
             android:focusable="true"
-            android:background="@drawable/bg_e60_btn_selector"
-            android:nextFocusUp="@+id/center_circle"
-            android:nextFocusLeft="@+id/btn_right_1"
-            android:nextFocusRight="@+id/btn_left_2"
-            app:layout_constraintTop_toBottomOf="@id/center_circle"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="@id/gl_center_circle_start"
-            app:layout_constraintEnd_toEndOf="@id/gl_center_circle_end" />
+            android:nextFocusUp="@+id/btn_left_1"
+            android:nextFocusRight="@+id/center_circle"
+            android:nextFocusDown="@+id/btn_volume_down"
+            android:nextFocusForward="@+id/btn_volume_down"
+            app:isRightSide="false"
+            app:bandPosition="2"
+            app:buttonMask="@drawable/ic_mask_music"
+            app:layout_constraintTop_toBottomOf="@id/gl_row_bot_top"
+            app:layout_constraintBottom_toTopOf="@id/gl_row_bot_bottom"
+            app:layout_constraintStart_toEndOf="@id/gl_btn_left_outer_start"
+            app:layout_constraintEnd_toStartOf="@id/gl_btn_left_outer_end" />
 
-        <!-- Stânga: TELEFON -->
-        <FrameLayout
+        <!-- Dreapta-Sus: TELEFON -->
+        <com.bmw.carlauncher.BmwWingGlowButton
             android:id="@+id/btn_right_1"
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:clickable="true"
             android:focusable="true"
-            android:background="@drawable/bg_e60_btn_selector"
-            android:nextFocusRight="@+id/center_circle"
-            android:nextFocusUp="@+id/btn_left_1"
-            android:nextFocusDown="@+id/btn_left_3"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/center_circle"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent" />
+            android:nextFocusDown="@+id/btn_left_2"
+            android:nextFocusLeft="@+id/center_circle"
+            android:nextFocusForward="@+id/center_circle"
+            app:isRightSide="true"
+            app:bandPosition="0"
+            app:buttonMask="@drawable/ic_mask_telefon"
+            app:layout_constraintTop_toBottomOf="@id/gl_row_top_top"
+            app:layout_constraintBottom_toTopOf="@id/gl_row_top_bottom"
+            app:layout_constraintStart_toEndOf="@id/gl_btn_right_outer_start"
+            app:layout_constraintEnd_toStartOf="@id/gl_btn_right_outer_end" />
 
-        <!-- Dreapta: NAVIGATIE -->
-        <FrameLayout
+        <!-- Dreapta-Jos: NAVIGATIE -->
+        <com.bmw.carlauncher.BmwWingGlowButton
             android:id="@+id/btn_left_2"
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:clickable="true"
             android:focusable="true"
-            android:background="@drawable/bg_e60_btn_selector"
+            android:nextFocusUp="@+id/btn_right_1"
             android:nextFocusLeft="@+id/center_circle"
-            android:nextFocusUp="@+id/btn_left_1"
-            android:nextFocusDown="@+id/btn_left_3"
-            app:layout_constraintStart_toEndOf="@id/center_circle"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent" />
+            android:nextFocusDown="@+id/btn_volume_up"
+            android:nextFocusForward="@+id/btn_right_1"
+            app:isRightSide="true"
+            app:bandPosition="2"
+            app:buttonMask="@drawable/ic_mask_navigatie"
+            app:layout_constraintTop_toBottomOf="@id/gl_row_bot_top"
+            app:layout_constraintBottom_toTopOf="@id/gl_row_bot_bottom"
+            app:layout_constraintStart_toEndOf="@id/gl_btn_right_outer_start"
+            app:layout_constraintEnd_toStartOf="@id/gl_btn_right_outer_end" />
 
         <!-- Dummy Views pentru compatibilitate MainActivity -->
         <FrameLayout
@@ -1460,7 +1468,6 @@
             android:id="@+id/circle_btn_1"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:visibility="gone"
             android:background="@drawable/bg_ripple_circle"
             android:clickable="false"
             android:focusable="false"
@@ -1475,7 +1482,6 @@
             android:id="@+id/circle_btn_2"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:visibility="gone"
             android:background="@drawable/bg_ripple_circle"
             android:clickable="false"
             android:focusable="false"
@@ -1490,7 +1496,6 @@
             android:id="@+id/btn_volume_down"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:visibility="gone"
             android:background="@drawable/bg_ripple_circle"
             android:clickable="true"
             android:focusable="true"
@@ -1508,7 +1513,6 @@
             android:id="@+id/btn_volume_up"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:visibility="gone"
             android:background="@drawable/bg_ripple_circle"
             android:clickable="true"
             android:focusable="true"
@@ -1526,10 +1530,10 @@
             android:id="@+id/btn_night_mode"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:visibility="gone"
             android:background="@drawable/bg_ripple_circle"
             android:clickable="true"
             android:focusable="true"
+            android:nextFocusForward="@+id/btn_quick_settings"
             android:padding="16dp"
             android:scaleType="fitCenter"
             android:src="@drawable/ic_moon"
@@ -1544,10 +1548,10 @@
             android:id="@+id/btn_quick_settings"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:visibility="gone"
             android:background="@drawable/bg_ripple_circle"
             android:clickable="true"
             android:focusable="true"
+            android:nextFocusForward="@+id/btn_left_1"
             android:padding="16dp"
             android:scaleType="fitCenter"
             android:src="@drawable/ic_settings_gear"
@@ -1568,13 +1572,13 @@
             android:id="@+id/btn_prev_track"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:visibility="gone"
             android:padding="4dp"
             android:scaleType="fitCenter"
             android:src="@drawable/ic_media_prev"
             android:background="@drawable/bg_ripple_btn"
             android:clickable="true"
             android:focusable="true"
+            android:nextFocusForward="@+id/btn_play_pause"
             app:layout_constraintTop_toBottomOf="@id/gl_media_bar_top"
             app:layout_constraintBottom_toTopOf="@id/gl_media_bar_bottom"
             app:layout_constraintStart_toEndOf="@id/gl_media_prev_start"
@@ -1585,13 +1589,13 @@
             android:id="@+id/btn_play_pause"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:visibility="gone"
             android:padding="4dp"
             android:scaleType="fitCenter"
             android:src="@drawable/ic_media_play"
             android:background="@drawable/bg_ripple_btn"
             android:clickable="true"
             android:focusable="true"
+            android:nextFocusForward="@+id/btn_next_track"
             app:layout_constraintTop_toBottomOf="@id/gl_media_bar_top"
             app:layout_constraintBottom_toTopOf="@id/gl_media_bar_bottom"
             app:layout_constraintStart_toEndOf="@id/gl_media_play_start"
@@ -1602,13 +1606,13 @@
             android:id="@+id/btn_next_track"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:visibility="gone"
             android:padding="4dp"
             android:scaleType="fitCenter"
             android:src="@drawable/ic_media_next"
             android:background="@drawable/bg_ripple_btn"
             android:clickable="true"
             android:focusable="true"
+            android:nextFocusForward="@+id/btn_left_2"
             app:layout_constraintTop_toBottomOf="@id/gl_media_bar_top"
             app:layout_constraintBottom_toTopOf="@id/gl_media_bar_bottom"
             app:layout_constraintStart_toEndOf="@id/gl_media_next_start"
