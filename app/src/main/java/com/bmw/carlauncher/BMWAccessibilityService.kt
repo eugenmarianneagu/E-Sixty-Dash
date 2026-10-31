@@ -2,9 +2,15 @@ package com.bmw.carlauncher
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.app.ActivityOptions
+import android.app.PendingIntent
+import android.bluetooth.BluetoothA2dp
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -19,10 +25,19 @@ class BMWAccessibilityService : AccessibilityService() {
 
     private var isClearingRecents = false
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val btDynamicReceiver = ReturnHomeReceiver()
+    private var isBtReceiverRegistered = false
+
+    override fun onCreate() {
+        super.onCreate()
+        instance = this
+        registerBtDynamicReceiver()
+    }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
+        registerBtDynamicReceiver()
         try {
             val info = serviceInfo ?: AccessibilityServiceInfo()
             info.eventTypes = AccessibilityEvent.TYPES_ALL_MASK
@@ -34,6 +49,28 @@ class BMWAccessibilityService : AccessibilityService() {
             Log.d(TAG, "BMWAccessibilityService connected, key filter and window retrieve active.")
         } catch (e: Exception) {
             Log.e(TAG, "Error configuring AccessibilityServiceInfo", e)
+        }
+    }
+
+    private fun registerBtDynamicReceiver() {
+        if (isBtReceiverRegistered) return
+        try {
+            val filter = IntentFilter().apply {
+                addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
+                addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
+                addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED)
+                addAction(ReturnHomeReceiver.ACTION_HID_CONNECTION_STATE_CHANGED)
+                addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(btDynamicReceiver, filter, Context.RECEIVER_EXPORTED)
+            } else {
+                registerReceiver(btDynamicReceiver, filter)
+            }
+            isBtReceiverRegistered = true
+            Log.i(TAG, "Dynamic Bluetooth receiver registered in BMWAccessibilityService")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to register dynamic Bluetooth receiver in BMWAccessibilityService", e)
         }
     }
 
@@ -94,13 +131,13 @@ class BMWAccessibilityService : AccessibilityService() {
         val recentsSuccess = performGlobalAction(GLOBAL_ACTION_RECENTS)
         Log.i(TAG, "performGlobalAction(GLOBAL_ACTION_RECENTS) returned: $recentsSuccess")
 
-        // 2. Prima Ã®ncercare de apÄƒsare a butonului de curÄƒÈ›are din Recents
+        // 2. Prima încercare de apăsare a butonului de curățare din Recents
         mainHandler.postDelayed({
             val clicked = tryClickClearButton()
             Log.i(TAG, "Attempt 1 to click clear button in Recents: $clicked")
         }, 350L)
 
-        // 3. A doua Ã®ncercare È™i revenire pe ecranul Home
+        // 3. A doua încercare și revenire pe ecranul Home
         mainHandler.postDelayed({
             if (isClearingRecents) {
                 val clicked = tryClickClearButton()
@@ -109,7 +146,7 @@ class BMWAccessibilityService : AccessibilityService() {
             performGlobalAction(GLOBAL_ACTION_HOME)
         }, 750L)
 
-        // 4. BlocheazÄƒ ecranul dupÄƒ ce Home s-a aÈ™ezat
+        // 4. Blochează ecranul după ce Home s-a așezat
         mainHandler.postDelayed({
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 val locked = performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
@@ -122,7 +159,7 @@ class BMWAccessibilityService : AccessibilityService() {
     private fun tryClickClearButton(): Boolean {
         try {
             val root = rootInActiveWindow ?: return false
-            // CÄƒutare dupÄƒ ID-ul specific Xiaomi MIUI / HyperOS
+            // Căutare după ID-ul specific Xiaomi MIUI / HyperOS
             val nodes = root.findAccessibilityNodeInfosByViewId("com.miui.home:id/clearAnimView")
             if (!nodes.isNullOrEmpty()) {
                 for (node in nodes) {
@@ -135,8 +172,8 @@ class BMWAccessibilityService : AccessibilityService() {
                 }
             }
 
-            // CÄƒutare alternativÄƒ dupÄƒ text sau descriere
-            val textCandidates = listOf("Clear all Recents", "È˜tergeÈ›i", "È˜terge", "CurÄƒÈ›Äƒ", "Clear all", "Clear")
+            // Căutare alternativă după text sau descriere
+            val textCandidates = listOf("Clear all Recents", "Ștergeți", "Șterge", "Curăță", "Clear all", "Clear")
             for (text in textCandidates) {
                 val found = root.findAccessibilityNodeInfosByText(text)
                 for (node in found) {
@@ -172,6 +209,12 @@ class BMWAccessibilityService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        if (isBtReceiverRegistered) {
+            try {
+                unregisterReceiver(btDynamicReceiver)
+            } catch (_: Exception) {}
+            isBtReceiverRegistered = false
+        }
         if (instance == this) instance = null
         super.onDestroy()
     }
@@ -198,6 +241,23 @@ class BMWAccessibilityService : AccessibilityService() {
                             Intent.FLAG_ACTIVITY_SINGLE_TOP
                         )
                     }
+                    try {
+                        val pi = PendingIntent.getActivity(
+                            context,
+                            777,
+                            intent,
+                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                        )
+                        if (Build.VERSION.SDK_INT >= 34) {
+                            val opts = ActivityOptions.makeBasic().apply {
+                                pendingIntentBackgroundActivityStartMode =
+                                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                            }
+                            pi.send(context, 0, null, null, null, null, opts.toBundle())
+                        } else {
+                            pi.send()
+                        }
+                    } catch (_: Exception) {}
                     context.startActivity(intent)
                 } catch (e: Exception) {
                     Log.e(TAG, "bringToForeground fallback error", e)

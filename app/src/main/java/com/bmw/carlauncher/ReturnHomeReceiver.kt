@@ -27,12 +27,14 @@ class ReturnHomeReceiver : BroadcastReceiver() {
 
         val isA2dpConnect = (action == BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED &&
                 intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_CONNECTED)
+        val isHidConnect = (action == ACTION_HID_CONNECTION_STATE_CHANGED &&
+                intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_CONNECTED)
         val isAclConnect = (action == BluetoothDevice.ACTION_ACL_CONNECTED)
 
         // ==============================================================
         // 1. CONECTARE BLUETOOTH LA DISPOZITIVUL SELECTAT
         // ==============================================================
-        if (isAclConnect || isA2dpConnect) {
+        if (isAclConnect || isA2dpConnect || isHidConnect) {
             val device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
             } else {
@@ -45,7 +47,8 @@ class ReturnHomeReceiver : BroadcastReceiver() {
 
             val savedCarBt = prefs.getString("car_bt_address", null)
             val isTargetDevice = if (!savedCarBt.isNullOrEmpty()) {
-                devAddress.equals(savedCarBt, ignoreCase = true)
+                devAddress.equals(savedCarBt, ignoreCase = true) ||
+                devName.contains("BMW iDrive", ignoreCase = true)
             } else {
                 devName.contains("BMW", ignoreCase = true) ||
                 devName.contains("iDrive", ignoreCase = true) ||
@@ -53,28 +56,24 @@ class ReturnHomeReceiver : BroadcastReceiver() {
             }
 
             if (!isTargetDevice) {
-                Log.d(TAG, "Dispozitiv ignorat (nu corespunde MAC-ului maÈ™inii): '$devName', adresa=$devAddress")
+                Log.d(TAG, "Dispozitiv ignorat (nu corespunde MAC-ului mașinii): '$devName', adresa=$devAddress")
                 return
             }
 
             val now = SystemClock.elapsedRealtime()
-            val lastDisconnect = MainActivity.lastDisconnectTimestamp
-            val prefsDisconnect = prefs.getLong("last_disconnect_elapsed_time", 0L)
-            val effectiveDisconnect = maxOf(lastDisconnect, prefsDisconnect)
-            val cooldownMs = 15000L // 15 secunde cooldown Ã®mpotriva repornirilor din condensatorii convertorului DC-DC
-
-            if (effectiveDisconnect > 0L && now - effectiveDisconnect < cooldownMs) {
-                val secLeft = (cooldownMs - (now - effectiveDisconnect)) / 1000L
-                Log.w(TAG, "Conectare ignoratÄƒ (Ã®n cooldown de deconectare, $secLeft secunde rÄƒmase): '$devName', adresa=$devAddress")
+            if (MainActivity.isCarConnectedState && now - lastConnectHandledTimestamp < 1500L) {
+                Log.d(TAG, "Conectare $action deja procesată acum ${now - lastConnectHandledTimestamp}ms, se aduce în prim-plan.")
+                BMWAccessibilityService.bringToForeground(context)
                 return
             }
+            lastConnectHandledTimestamp = now
 
-            Log.i(TAG, "Dispozitiv maÈ™inÄƒ detectat ($devAddress)! Pornire muzicÄƒ È™i aducere Ã®n prim-plan...")
+            Log.i(TAG, "Dispozitiv mașină detectat ($devAddress)! Pornire muzică și aducere în prim-plan...")
             MainActivity.lastDisconnectTimestamp = 0L
             prefs.edit().remove("last_disconnect_elapsed_time").apply()
             MainActivity.isCarConnectedState = true
 
-            // A. PorneÈ™te redarea radio / muzicÄƒ
+            // A. Pornește redarea radio / muzică
             try {
                 val radioIntent = Intent(context, RadioService::class.java).apply {
                     this.action = RadioService.ACTION_START_PLAY
@@ -88,14 +87,14 @@ class ReturnHomeReceiver : BroadcastReceiver() {
                 Log.e(TAG, "Eroare la pornirea RadioService: ${e.message}")
             }
 
-            // B. NotificÄƒ instanÈ›a dacÄƒ e deja activÄƒ
+            // B. Notifică instanța dacă e deja activă
             MainActivity.instance?.let { act ->
                 act.runOnUiThread {
                     act.startRadioPlayback()
                 }
             }
 
-            // C. Aduce aplicaÈ›ia Ã®n prim-plan
+            // C. Aduce aplicația în prim-plan
             BMWAccessibilityService.bringToForeground(context)
             return
         }
@@ -106,11 +105,13 @@ class ReturnHomeReceiver : BroadcastReceiver() {
         val isAclDisconnect = (action == BluetoothDevice.ACTION_ACL_DISCONNECTED)
         val isA2dpDisconnect = (action == BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED &&
                 intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_DISCONNECTED)
+        val isHidDisconnect = (action == ACTION_HID_CONNECTION_STATE_CHANGED &&
+                intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_DISCONNECTED)
         val isBtOff = (action == android.bluetooth.BluetoothAdapter.ACTION_STATE_CHANGED &&
                 (intent.getIntExtra(android.bluetooth.BluetoothAdapter.EXTRA_STATE, -1) == android.bluetooth.BluetoothAdapter.STATE_OFF ||
                  intent.getIntExtra(android.bluetooth.BluetoothAdapter.EXTRA_STATE, -1) == android.bluetooth.BluetoothAdapter.STATE_TURNING_OFF))
 
-        if (isAclDisconnect || isA2dpDisconnect || isBtOff) {
+        if (isAclDisconnect || isA2dpDisconnect || isHidDisconnect || isBtOff) {
             val device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
             } else {
@@ -125,7 +126,8 @@ class ReturnHomeReceiver : BroadcastReceiver() {
             val isTargetDevice = if (isBtOff) {
                 true
             } else if (!savedCarBt.isNullOrEmpty()) {
-                devAddress.equals(savedCarBt, ignoreCase = true)
+                devAddress.equals(savedCarBt, ignoreCase = true) ||
+                devName.contains("BMW iDrive", ignoreCase = true)
             } else {
                 devName.contains("BMW", ignoreCase = true) ||
                 devName.contains("iDrive", ignoreCase = true) ||
@@ -138,18 +140,18 @@ class ReturnHomeReceiver : BroadcastReceiver() {
             }
 
             val now = SystemClock.elapsedRealtime()
-            if (!MainActivity.isCarConnectedState && now - MainActivity.lastDisconnectTimestamp < 5000L) {
-                Log.d(TAG, "Deconectare $action deja procesatÄƒ acum ${now - MainActivity.lastDisconnectTimestamp}ms, ignorare duplicat.")
+            if (!MainActivity.isCarConnectedState && now - MainActivity.lastDisconnectTimestamp < 3000L) {
+                Log.d(TAG, "Deconectare $action deja procesată acum ${now - MainActivity.lastDisconnectTimestamp}ms, ignorare duplicat.")
                 return
             }
 
-            val pendingResult = goAsync()
-            Log.i(TAG, "Dispozitiv È›intÄƒ deconectat ($devAddress)! Oprire muzicÄƒ, curÄƒÈ›are Recents È™i blocare telefon...")
+            val pendingResult = try { goAsync() } catch (_: Exception) { null }
+            Log.i(TAG, "Dispozitiv țintă deconectat ($devAddress)! Oprire muzică, curățare Recents și blocare telefon...")
             MainActivity.isCarConnectedState = false
             MainActivity.lastDisconnectTimestamp = now
             prefs.edit().putLong("last_disconnect_elapsed_time", now).apply()
 
-            // A. OpreÈ™te radioul / muzica la deconectare
+            // A. Oprește radioul / muzica la deconectare
             try {
                 context.sendBroadcast(Intent(RadioService.ACTION_STOP_RADIO).setPackage(context.packageName))
             } catch (_: Exception) {}
@@ -168,14 +170,16 @@ class ReturnHomeReceiver : BroadcastReceiver() {
                 }
             }
 
-            // B. CurÄƒÈ›Äƒ aplicaÈ›iile din Recents È™i blocheazÄƒ ecranul
+            // B. Curăță aplicațiile din Recents și blochează ecranul
             BMWAccessibilityService.clearRecentsAndLockScreen()
 
-            Handler(Looper.getMainLooper()).postDelayed({
-                try {
-                    pendingResult.finish()
-                } catch (_: Exception) {}
-            }, 2500L)
+            if (pendingResult != null) {
+                Handler(Looper.getMainLooper()).postDelayed({
+                    try {
+                        pendingResult.finish()
+                    } catch (_: Exception) {}
+                }, 2500L)
+            }
 
             return
         }
@@ -194,5 +198,8 @@ class ReturnHomeReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "ReturnHomeReceiver"
+        const val ACTION_HID_CONNECTION_STATE_CHANGED = "android.bluetooth.input.profile.action.CONNECTION_STATE_CHANGED"
+        @Volatile
+        private var lastConnectHandledTimestamp: Long = 0L
     }
 }

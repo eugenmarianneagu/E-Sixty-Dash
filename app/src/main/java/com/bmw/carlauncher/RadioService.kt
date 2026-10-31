@@ -53,6 +53,9 @@ class RadioService : MediaSessionService() {
     private val artworkCache = mutableMapOf<Int, ByteArray>()
     private val retryHandler = Handler(Looper.getMainLooper())
 
+    private val btDynamicReceiver = ReturnHomeReceiver()
+    private var isBtReceiverRegistered = false
+
     private val stopRadioReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == ACTION_STOP_RADIO) {
@@ -106,6 +109,22 @@ class RadioService : MediaSessionService() {
             } else {
                 registerReceiver(stopRadioReceiver, filter)
             }
+        } catch (_: Exception) {}
+
+        try {
+            val btFilter = IntentFilter().apply {
+                addAction(android.bluetooth.BluetoothDevice.ACTION_ACL_CONNECTED)
+                addAction(android.bluetooth.BluetoothDevice.ACTION_ACL_DISCONNECTED)
+                addAction(android.bluetooth.BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED)
+                addAction(ReturnHomeReceiver.ACTION_HID_CONNECTION_STATE_CHANGED)
+                addAction(android.bluetooth.BluetoothAdapter.ACTION_STATE_CHANGED)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(btDynamicReceiver, btFilter, Context.RECEIVER_EXPORTED)
+            } else {
+                registerReceiver(btDynamicReceiver, btFilter)
+            }
+            isBtReceiverRegistered = true
         } catch (_: Exception) {}
 
         val audioAttributes = AudioAttributes.Builder()
@@ -485,6 +504,12 @@ class RadioService : MediaSessionService() {
         try {
             unregisterReceiver(stopRadioReceiver)
         } catch (_: Exception) {}
+        if (isBtReceiverRegistered) {
+            try {
+                unregisterReceiver(btDynamicReceiver)
+            } catch (_: Exception) {}
+            isBtReceiverRegistered = false
+        }
         mediaSession?.run {
             player.release()
             release()

@@ -466,17 +466,13 @@ class MainActivity : AppCompatActivity() {
             val prefs = getSharedPreferences("agama_settings", Context.MODE_PRIVATE)
             val savedCarAddress = prefs.getString("car_bt_address", null)
             val isCarDevice = if (!savedCarAddress.isNullOrEmpty()) {
-                devAddress.equals(savedCarAddress, ignoreCase = true)
+                devAddress.equals(savedCarAddress, ignoreCase = true) ||
+                devName.contains("BMW iDrive", ignoreCase = true)
             } else {
                 devName.contains("BMW", ignoreCase = true) ||
                 devName.contains("iDrive", ignoreCase = true) ||
                 devName.contains("ESP32", ignoreCase = true)
             }
-
-            val now = android.os.SystemClock.elapsedRealtime()
-            val prefsDisconnect = prefs.getLong("last_disconnect_elapsed_time", 0L)
-            val effectiveDisconnect = maxOf(lastDisconnectTimestamp, prefsDisconnect)
-            val isInDisconnectCooldown = (effectiveDisconnect > 0L && now - effectiveDisconnect < 15000L)
 
             when (action) {
                 BluetoothDevice.ACTION_ACL_DISCONNECTED -> {
@@ -484,32 +480,36 @@ class MainActivity : AppCompatActivity() {
                         handleCarDisconnected("ACL_DISCONNECTED: $devName ($devAddress)")
                     }
                 }
-                BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED -> {
+                BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED,
+                ReturnHomeReceiver.ACTION_HID_CONNECTION_STATE_CHANGED -> {
                     val state = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1)
-                    if (isCarDevice && state == BluetoothProfile.STATE_CONNECTED && !isInDisconnectCooldown) {
-                        Log.i("MainActivity", "Car device A2DP connected: $devName")
+                    if (isCarDevice && state == BluetoothProfile.STATE_CONNECTED) {
+                        Log.i("MainActivity", "Car device profile connected ($action): $devName")
                         lastDisconnectTimestamp = 0L
+                        prefs.edit().remove("last_disconnect_elapsed_time").apply()
                         isCarConnectedState = true
                         startRadioPlayback()
                         BMWAccessibilityService.bringToForeground(this@MainActivity)
                     } else if (isCarDevice && state == BluetoothProfile.STATE_DISCONNECTED) {
-                        handleCarDisconnected("A2DP_DISCONNECTED: $devName")
+                        handleCarDisconnected("PROFILE_DISCONNECTED ($action): $devName")
                     }
                 }
                 BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED -> {
                     val state = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1)
-                    if (isCarDevice && state == BluetoothProfile.STATE_CONNECTED && !isInDisconnectCooldown) {
+                    if (isCarDevice && state == BluetoothProfile.STATE_CONNECTED) {
                         Log.i("MainActivity", "Car device Headset connected: $devName")
                         lastDisconnectTimestamp = 0L
+                        prefs.edit().remove("last_disconnect_elapsed_time").apply()
                         isCarConnectedState = true
                         startRadioPlayback()
                         BMWAccessibilityService.bringToForeground(this@MainActivity)
                     }
                 }
                 BluetoothDevice.ACTION_ACL_CONNECTED -> {
-                    if (isCarDevice && devAddress.isNotEmpty() && !isInDisconnectCooldown) {
+                    if (isCarDevice && devAddress.isNotEmpty()) {
                         Log.i("MainActivity", "Car device ACL connected: $devName ($devAddress)")
                         lastDisconnectTimestamp = 0L
+                        prefs.edit().remove("last_disconnect_elapsed_time").apply()
                         isCarConnectedState = true
                         startRadioPlayback()
                         BMWAccessibilityService.bringToForeground(this@MainActivity)
@@ -4148,12 +4148,29 @@ class MainActivity : AppCompatActivity() {
             addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
             addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
             addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED)
+            addAction(ReturnHomeReceiver.ACTION_HID_CONNECTION_STATE_CHANGED)
             addAction(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED)
             addAction(BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED)
             addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
         }
         try {
-            registerReceiver(bluetoothReceiver, btFilter)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(bluetoothReceiver, btFilter, Context.RECEIVER_EXPORTED)
+            } else {
+                registerReceiver(bluetoothReceiver, btFilter)
+            }
+        } catch (_: Exception) {}
+
+        // Asigură că RadioService rulează în standby pentru a asculta conectarea Bluetooth chiar și cu aplicația închisă
+        try {
+            val standbyIntent = Intent(this, RadioService::class.java).apply {
+                action = RadioService.ACTION_RESTART_STANDBY
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(standbyIntent)
+            } else {
+                startService(standbyIntent)
+            }
         } catch (_: Exception) {}
         initBluetoothProfiles()
         checkBluetoothConnectionAndUpdateOrientation()
@@ -4291,11 +4308,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
-                try {
-            unregisterReceiver(batteryReceiver)
-        } catch (_: Exception) {}
         try {
-            unregisterReceiver(bluetoothReceiver)
+            unregisterReceiver(batteryReceiver)
         } catch (_: Exception) {}
         WazeNavManager.listener = null
         ExternalMediaManager.listener = null
@@ -4424,6 +4438,9 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         if (instance == this) instance = null
+        try {
+            unregisterReceiver(bluetoothReceiver)
+        } catch (_: Exception) {}
         VoiceMessagePlayer.stop()
         VoiceMessagePlayer.listener = null
         energyHandler.removeCallbacksAndMessages(null)
