@@ -130,6 +130,7 @@ void setup() {
 }
 
 void loop() {
+    bleKeyboard.checkConnParamsUpdate();
     unsigned long now = millis();
 
     // 1. Procesam rotirea encoderului acumulata (1 pas per click in detent 11)

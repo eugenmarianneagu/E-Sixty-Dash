@@ -24,6 +24,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 class BMWAccessibilityService : AccessibilityService() {
 
     private var isClearingRecents = false
+    private var lastClearAndLockTimestamp = 0L
     private val mainHandler = Handler(Looper.getMainLooper())
     private val btDynamicReceiver = ReturnHomeReceiver()
     private var isBtReceiverRegistered = false
@@ -123,37 +124,50 @@ class BMWAccessibilityService : AccessibilityService() {
         }
     }
 
+    private fun finishLockScreenFast() {
+        mainHandler.removeCallbacksAndMessages(null)
+        isClearingRecents = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val locked = performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+            Log.i(TAG, "clearRecentsAndLockScreen: lockScreen executed ($locked)")
+        }
+    }
+
     fun startClearRecentsAndLock() {
-        Log.i(TAG, "startClearRecentsAndLock() called")
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastClearAndLockTimestamp < 1500L) {
+            Log.d(TAG, "startClearRecentsAndLock() ignored duplicate call within ${now - lastClearAndLockTimestamp}ms")
+            return
+        }
+        lastClearAndLockTimestamp = now
+
+        Log.i(TAG, "startClearRecentsAndLock() called (fast mode)")
+        mainHandler.removeCallbacksAndMessages(null)
         isClearingRecents = true
 
-        // 1. Deschide ecranul Recents
+        // 1. Deschide instant ecranul Recents
         val recentsSuccess = performGlobalAction(GLOBAL_ACTION_RECENTS)
         Log.i(TAG, "performGlobalAction(GLOBAL_ACTION_RECENTS) returned: $recentsSuccess")
 
-        // 2. Prima încercare de apăsare a butonului de curățare din Recents
-        mainHandler.postDelayed({
-            val clicked = tryClickClearButton()
-            Log.i(TAG, "Attempt 1 to click clear button in Recents: $clicked")
-        }, 350L)
+        // 2. Încercări rapide de apăsare pe butonul de curățare Recents; imediat ce reușește, blochează ecranul
+        val attemptDelays = longArrayOf(90L, 170L, 250L, 330L)
+        for (delay in attemptDelays) {
+            mainHandler.postDelayed({
+                if (isClearingRecents && tryClickClearButton()) {
+                    mainHandler.removeCallbacksAndMessages(null)
+                    mainHandler.postDelayed({ finishLockScreenFast() }, 70L)
+                }
+            }, delay)
+        }
 
-        // 3. A doua încercare și revenire pe ecranul Home
+        // 3. Fallback rapid dacă lista Recents era deja goală
         mainHandler.postDelayed({
             if (isClearingRecents) {
-                val clicked = tryClickClearButton()
-                Log.i(TAG, "Attempt 2 to click clear button in Recents: $clicked")
+                tryClickClearButton()
+                performGlobalAction(GLOBAL_ACTION_HOME)
+                mainHandler.postDelayed({ finishLockScreenFast() }, 70L)
             }
-            performGlobalAction(GLOBAL_ACTION_HOME)
-        }, 750L)
-
-        // 4. Blochează ecranul după ce Home s-a așezat
-        mainHandler.postDelayed({
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                val locked = performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
-                Log.i(TAG, "clearRecentsAndLockScreen: lockScreen executed ($locked)")
-            }
-            isClearingRecents = false
-        }, 1200L)
+        }, 420L)
     }
 
     private fun tryClickClearButton(): Boolean {
@@ -196,10 +210,11 @@ class BMWAccessibilityService : AccessibilityService() {
             val pkg = event.packageName?.toString() ?: ""
             if (pkg.contains("miui.home") || pkg.contains("launcher") || pkg.contains("systemui")) {
                 mainHandler.postDelayed({
-                    if (isClearingRecents) {
-                        tryClickClearButton()
+                    if (isClearingRecents && tryClickClearButton()) {
+                        mainHandler.removeCallbacksAndMessages(null)
+                        mainHandler.postDelayed({ finishLockScreenFast() }, 70L)
                     }
-                }, 150L)
+                }, 30L)
             }
         }
     }
