@@ -153,6 +153,11 @@ class MainActivity : AppCompatActivity() {
                         act.controller?.pause()
                         act.controller?.stop()
                     } catch (_: Exception) {}
+                    // 1b. Oprește Media Playerul local
+                    try {
+                        LocalMusicPlayer.pause()
+                        LocalMusicPlayer.stop()
+                    } catch (_: Exception) {}
                     // 2. Oprește YouTube Web dacă este activ
                     try {
                         if (act.isYouTubeWebMode && act.isYouTubeWebPlaying) {
@@ -3654,6 +3659,10 @@ class MainActivity : AppCompatActivity() {
             controller?.stop()
         } catch (_: Exception) {}
         try {
+            LocalMusicPlayer.pause()
+            LocalMusicPlayer.stop()
+        } catch (_: Exception) {}
+        try {
             if (isYouTubeWebMode && isYouTubeWebPlaying) {
                 youtubeWebView?.evaluateJavascript("window.__bmwUserPaused = true; var v = document.querySelector('video'); if (v) v.pause();", null)
                 isYouTubeWebPlaying = false
@@ -3661,6 +3670,9 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) {}
         try {
             ExternalMediaManager.getActiveMusicController(this)?.transportControls?.pause()
+            val am = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+            am?.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PAUSE))
+            am?.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PAUSE))
         } catch (_: Exception) {}
         try {
             VoiceMessagePlayer.stop()

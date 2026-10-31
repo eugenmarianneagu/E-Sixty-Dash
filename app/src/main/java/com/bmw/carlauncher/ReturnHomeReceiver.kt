@@ -155,6 +155,10 @@ class ReturnHomeReceiver : BroadcastReceiver() {
             try {
                 context.sendBroadcast(Intent(RadioService.ACTION_STOP_RADIO).setPackage(context.packageName))
             } catch (_: Exception) {}
+            try {
+                LocalMusicPlayer.pause()
+                LocalMusicPlayer.stop()
+            } catch (_: Exception) {}
 
             MainActivity.instance?.let { act ->
                 act.runOnUiThread {

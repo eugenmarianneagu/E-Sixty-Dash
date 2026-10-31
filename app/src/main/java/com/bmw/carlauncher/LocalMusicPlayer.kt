@@ -264,6 +264,11 @@ object LocalMusicPlayer {
         exoPlayer?.pause()
     }
 
+    fun stop() {
+        exoPlayer?.pause()
+        exoPlayer?.stop()
+    }
+
     fun next() {
         val player = exoPlayer ?: return
         if (player.hasNextMediaItem()) {
