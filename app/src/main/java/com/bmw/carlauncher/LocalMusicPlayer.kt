@@ -428,30 +428,19 @@ object LocalMusicPlayer {
         }
         canvas.drawCircle(cx, cy, 124f, labelPaint)
 
-        // Center vinyl hole
+        // Center vinyl hole & subtle inner ring
+        val innerRingPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.parseColor("#55FF7200")
+            style = android.graphics.Paint.Style.STROKE
+            strokeWidth = 2f
+        }
+        canvas.drawCircle(cx, cy, 34f, innerRingPaint)
+
         val holePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
             color = android.graphics.Color.parseColor("#0A0A0A")
             style = android.graphics.Paint.Style.FILL
         }
-        canvas.drawCircle(cx, cy, 16f, holePaint)
-
-        val titlePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-            color = android.graphics.Color.WHITE
-            textSize = 24f
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
-            textAlign = android.graphics.Paint.Align.CENTER
-        }
-        val artistPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-            color = android.graphics.Color.parseColor("#FFB300")
-            textSize = 18f
-            textAlign = android.graphics.Paint.Align.CENTER
-        }
-
-        val displayTitle = if (title.length > 18) title.take(16) + "..." else title
-        val displayArtist = if (artist.length > 22) artist.take(20) + "..." else artist
-
-        canvas.drawText(displayTitle, cx, cy - 42f, titlePaint)
-        canvas.drawText(displayArtist, cx, cy + 58f, artistPaint)
+        canvas.drawCircle(cx, cy, 18f, holePaint)
 
         return bmp
     }
