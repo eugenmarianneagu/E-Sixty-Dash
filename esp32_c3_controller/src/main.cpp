@@ -34,6 +34,7 @@ BleKeyboard bleKeyboard("BMW iDrive", "BMW", 100);
 uint8_t histA = 0xFF, histB = 0xFF;
 bool cleanA = HIGH, cleanB = HIGH, lastCleanA = HIGH;
 unsigned long lastSampleUs = 0;
+bool lastBleConnected = false;
 
 // ============================================================================
 // STRUCTURĂ ȘI VARIABILE PENTRU BUTOANE (Debounce non-blocant)
@@ -64,6 +65,8 @@ void sendRotaryRight() {
     Serial.println("[ENC] Rotire DREAPTA -> TAB");
     if (bleKeyboard.isConnected()) {
         bleKeyboard.write(KEY_TAB);
+    } else {
+        Serial.println("  [AVERTISMENT] Comanda netransmisa: telefonul NU este conectat prin Bluetooth!");
     }
 }
 
@@ -73,6 +76,8 @@ void sendRotaryLeft() {
         bleKeyboard.press(KEY_LEFT_SHIFT);
         bleKeyboard.press(KEY_TAB);
         bleKeyboard.releaseAll();
+    } else {
+        Serial.println("  [AVERTISMENT] Comanda netransmisa: telefonul NU este conectat prin Bluetooth!");
     }
 }
 
@@ -80,6 +85,8 @@ void sendEnterKey() {
     Serial.println("[BTN SW] Apasare Scurta -> ENTER");
     if (bleKeyboard.isConnected()) {
         bleKeyboard.write(KEY_RETURN);
+    } else {
+        Serial.println("  [AVERTISMENT] Comanda netransmisa: telefonul NU este conectat prin Bluetooth!");
     }
 }
 
@@ -87,6 +94,8 @@ void sendF12Key() {
     Serial.println("[BTN SW] Apasare Lunga -> F12 (Home Return)");
     if (bleKeyboard.isConnected()) {
         bleKeyboard.write(KEY_F12);
+    } else {
+        Serial.println("  [AVERTISMENT] Comanda netransmisa: telefonul NU este conectat prin Bluetooth!");
     }
 }
 
@@ -94,6 +103,8 @@ void sendMediaPlayPause() {
     Serial.println("[BTN 1] Media -> PLAY / PAUSE");
     if (bleKeyboard.isConnected()) {
         bleKeyboard.write(KEY_MEDIA_PLAY_PAUSE);
+    } else {
+        Serial.println("  [AVERTISMENT] Comanda netransmisa: telefonul NU este conectat prin Bluetooth!");
     }
 }
 
@@ -101,6 +112,8 @@ void sendMediaPrevious() {
     Serial.println("[BTN 2] Media -> PREVIOUS TRACK");
     if (bleKeyboard.isConnected()) {
         bleKeyboard.write(KEY_MEDIA_PREVIOUS_TRACK);
+    } else {
+        Serial.println("  [AVERTISMENT] Comanda netransmisa: telefonul NU este conectat prin Bluetooth!");
     }
 }
 
@@ -108,6 +121,8 @@ void sendMediaNext() {
     Serial.println("[BTN 3] Media -> NEXT TRACK");
     if (bleKeyboard.isConnected()) {
         bleKeyboard.write(KEY_MEDIA_NEXT_TRACK);
+    } else {
+        Serial.println("  [AVERTISMENT] Comanda netransmisa: telefonul NU este conectat prin Bluetooth!");
     }
 }
 
@@ -236,6 +251,22 @@ void loop() {
     checkButton(btnPlay, nowMs, sendMediaPlayPause);
     checkButton(btnPrev, nowMs, sendMediaPrevious);
     checkButton(btnNext, nowMs, sendMediaNext);
+
+    // ------------------------------------------------------------------------
+    // NOTIFICARE STARE CONEXIUNE BLUETOOTH
+    // ------------------------------------------------------------------------
+    bool isConn = bleKeyboard.isConnected();
+    if (isConn != lastBleConnected) {
+        lastBleConnected = isConn;
+        if (isConn) {
+            Serial.println("\n***************************************************");
+            Serial.println("  >>> [BLE] TELEFONUL S-A CONECTAT CU SUCCES! <<<");
+            Serial.println("  Toate comenzile (Encoder + Butoane) sunt active!");
+            Serial.println("***************************************************\n");
+        } else {
+            Serial.println("\n>>> [BLE] Telefonul s-a DECONECTAT! Asteptare reconectare... <<<\n");
+        }
+    }
 
     // ------------------------------------------------------------------------
     // 3. COMENZI DE TEST PRIN SERIAL CDC (Opțional pt depanare USB)
