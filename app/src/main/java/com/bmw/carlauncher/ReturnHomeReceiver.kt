@@ -55,18 +55,14 @@ class ReturnHomeReceiver : BroadcastReceiver() {
             Log.i(TAG, "Bluetooth device connected ($action): '$devName', address=$devAddress")
 
             val savedCarBt = prefs.getString("car_bt_address", null)
-            val isEsp32Mac = devAddress.equals("AC:A7:04:13:3D:59", ignoreCase = true)
             val isTargetDevice = if (!savedCarBt.isNullOrEmpty()) {
-                devAddress.equals(savedCarBt, ignoreCase = true) ||
-                isEsp32Mac ||
-                devName.contains("BMW", ignoreCase = true) ||
-                devName.contains("iDrive", ignoreCase = true) ||
-                devName.contains("ESP32", ignoreCase = true)
+                if (savedCarBt.equals("NONE", ignoreCase = true)) {
+                    false
+                } else {
+                    devAddress.equals(savedCarBt, ignoreCase = true)
+                }
             } else {
-                isEsp32Mac ||
-                devName.contains("BMW", ignoreCase = true) ||
-                devName.contains("iDrive", ignoreCase = true) ||
-                devName.contains("ESP32", ignoreCase = true)
+                devName.contains("BMW", ignoreCase = true) && !devName.contains("iDrive", ignoreCase = true)
             }
 
             if (!isTargetDevice) {
@@ -185,20 +181,16 @@ class ReturnHomeReceiver : BroadcastReceiver() {
             Log.i(TAG, "Bluetooth device disconnected ($action): '$devName', address=$devAddress")
 
             val savedCarBt = prefs.getString("car_bt_address", null)
-            val isEsp32Mac = devAddress.equals("AC:A7:04:13:3D:59", ignoreCase = true)
             val isTargetDevice = if (isBtOff) {
                 true
             } else if (!savedCarBt.isNullOrEmpty()) {
-                devAddress.equals(savedCarBt, ignoreCase = true) ||
-                isEsp32Mac ||
-                devName.contains("BMW", ignoreCase = true) ||
-                devName.contains("iDrive", ignoreCase = true) ||
-                devName.contains("ESP32", ignoreCase = true)
+                if (savedCarBt.equals("NONE", ignoreCase = true)) {
+                    false
+                } else {
+                    devAddress.equals(savedCarBt, ignoreCase = true)
+                }
             } else {
-                isEsp32Mac ||
-                devName.contains("BMW", ignoreCase = true) ||
-                devName.contains("iDrive", ignoreCase = true) ||
-                devName.contains("ESP32", ignoreCase = true)
+                devName.contains("BMW", ignoreCase = true) && !devName.contains("iDrive", ignoreCase = true)
             }
 
             if (!isTargetDevice) {

@@ -10,6 +10,7 @@
 #include <BLEServer.h>
 #include "BLE2902.h"
 #include "BLEHIDDevice.h"
+#include "BLESecurity.h"
 #endif // USE_NIMBLE
 #include "HIDTypes.h"
 #include <driver/adc.h>
@@ -95,6 +96,16 @@ static const uint8_t _hidReportDescriptor[] = {
   END_COLLECTION(0)                  // END_COLLECTION
 };
 
+class BleKeyboardSecurityCallbacks : public BLESecurityCallbacks {
+public:
+  bool onSecurityRequest() override {
+    return true;
+  }
+  bool onConfirmPIN(uint32_t pin) override {
+    return true;
+  }
+};
+
 BleKeyboard::BleKeyboard(std::string deviceName, std::string deviceManufacturer, uint8_t batteryLevel) 
     : hid(0)
     , deviceName(std::string(deviceName).substr(0, 15))
@@ -131,6 +142,8 @@ void BleKeyboard::begin(void)
   pSecurity->setAuthenticationMode(ESP_LE_AUTH_BOND);
   pSecurity->setCapability(ESP_IO_CAP_NONE);
   pSecurity->setInitEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
+  pSecurity->setRespEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
+  BLEDevice::setSecurityCallbacks(new BleKeyboardSecurityCallbacks());
 
   hid->reportMap((uint8_t*)_hidReportDescriptor, sizeof(_hidReportDescriptor));
   hid->startServices();

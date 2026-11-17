@@ -488,18 +488,14 @@ class MainActivity : AppCompatActivity() {
 
             val prefs = getSharedPreferences("agama_settings", Context.MODE_PRIVATE)
             val savedCarAddress = prefs.getString("car_bt_address", null)
-            val isEsp32Mac = devAddress.equals("AC:A7:04:13:3D:59", ignoreCase = true)
             val isCarDevice = if (!savedCarAddress.isNullOrEmpty()) {
-                devAddress.equals(savedCarAddress, ignoreCase = true) ||
-                isEsp32Mac ||
-                devName.contains("BMW", ignoreCase = true) ||
-                devName.contains("iDrive", ignoreCase = true) ||
-                devName.contains("ESP32", ignoreCase = true)
+                if (savedCarAddress.equals("NONE", ignoreCase = true)) {
+                    false
+                } else {
+                    devAddress.equals(savedCarAddress, ignoreCase = true)
+                }
             } else {
-                isEsp32Mac ||
-                devName.contains("BMW", ignoreCase = true) ||
-                devName.contains("iDrive", ignoreCase = true) ||
-                devName.contains("ESP32", ignoreCase = true)
+                devName.contains("BMW", ignoreCase = true) && !devName.contains("iDrive", ignoreCase = true)
             }
 
             when (action) {
@@ -3472,8 +3468,10 @@ class MainActivity : AppCompatActivity() {
 
         val carBtName = prefs.getString("car_bt_name", null)
         val carBtAddress = prefs.getString("car_bt_address", null)
-        if (!carBtAddress.isNullOrEmpty()) {
+        if (!carBtAddress.isNullOrEmpty() && !carBtAddress.equals("NONE", ignoreCase = true)) {
             tvCarBtStatus.text = if (!carBtName.isNullOrEmpty()) "$carBtName ($carBtAddress)" else carBtAddress
+        } else if (carBtAddress.equals("NONE", ignoreCase = true)) {
+            tvCarBtStatus.text = "Dezactivat"
         } else {
             tvCarBtStatus.text = "Neselectat (Apasă pentru selectare)"
         }
@@ -3536,10 +3534,10 @@ class MainActivity : AppCompatActivity() {
         builder.setTitle("Selectează Bluetooth-ul Mașinii")
         builder.setSingleChoiceItems(items.toTypedArray(), selectedIndex) { dialog, which ->
             if (which == 0) {
-                prefs.edit().remove("car_bt_address").remove("car_bt_name").putString("force_display_mode", "auto").apply()
+                prefs.edit().putString("car_bt_address", "NONE").putString("car_bt_name", "Dezactivat").putString("force_display_mode", "auto").apply()
                 lastDisconnectTimestamp = 0L
                 isCarConnectedState = false
-                tvCarBtStatus.text = "Neselectat (Apasă pentru selectare)"
+                tvCarBtStatus.text = "Dezactivat"
                 Toast.makeText(this, "Bluetooth mașină dezactivat", Toast.LENGTH_SHORT).show()
             } else {
                 val selectedDevice = bondedDevices[which - 1]
@@ -3635,6 +3633,7 @@ class MainActivity : AppCompatActivity() {
 
         try {
             if (!savedCarAddress.isNullOrEmpty()) {
+                if (savedCarAddress.equals("NONE", ignoreCase = true)) return false
                 val a2dpConn = a2dpProxy?.connectedDevices?.any { it.address.equals(savedCarAddress, ignoreCase = true) } == true
                 val headsetConn = headsetProxy?.connectedDevices?.any { it.address.equals(savedCarAddress, ignoreCase = true) } == true
                 val gattConn = try {
@@ -3656,13 +3655,13 @@ class MainActivity : AppCompatActivity() {
                 return false
             }
 
-            // Fallback dacă nu este selectat explicit un dispozitiv: detectează BMW / iDrive / ESP32 doar prin profiluri active A2DP/Headset
+            // Fallback dacă nu este selectat explicit un dispozitiv: detectează BMW doar prin profiluri active A2DP/Headset (excluzând tastaturi/controllere iDrive)
             val connectedA2dp = a2dpProxy?.connectedDevices ?: emptyList()
             val connectedHeadset = headsetProxy?.connectedDevices ?: emptyList()
             val allConnected = (connectedA2dp + connectedHeadset).distinctBy { it.address }
             for (dev in allConnected) {
                 val name = try { dev.name } catch (_: Exception) { null } ?: ""
-                if (name.contains("BMW", ignoreCase = true) || name.contains("iDrive", ignoreCase = true) || name.contains("ESP32", ignoreCase = true)) {
+                if (name.contains("BMW", ignoreCase = true) && !name.contains("iDrive", ignoreCase = true)) {
                     isCarConnectedState = true
                     return true
                 }
