@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <BleKeyboard.h>
+#include <HijelHID_BLEKeyboard.h>
 
 /**
  * Controller Auto BMW iDrive / Media - ESP32-C3-WROOM-02
@@ -26,7 +26,7 @@ constexpr uint8_t PIN_BTN_PREV   = 5;
 constexpr uint8_t PIN_BTN_NEXT   = 6;
 
 // Instanță Bluetooth HID Keyboard
-BleKeyboard bleKeyboard("BMW iDrive", "BMW", 100);
+HijelHID_BLEKeyboard bleKeyboard("BMW iDrive", "BMW", 100);
 
 // ============================================================================
 // VARIABILE ENCODER (Shift-Register Debouncer la 400 us)
@@ -64,7 +64,7 @@ constexpr unsigned long SW_LONG_PRESS_MS = 600;
 void sendRotaryRight() {
     Serial.println("[ENC] Rotire DREAPTA -> TAB");
     if (bleKeyboard.isConnected()) {
-        bleKeyboard.write(KEY_TAB);
+        bleKeyboard.tap(KEY_TAB);
     } else {
         Serial.println("  [AVERTISMENT] Comanda netransmisa: telefonul NU este conectat prin Bluetooth!");
     }
@@ -73,9 +73,7 @@ void sendRotaryRight() {
 void sendRotaryLeft() {
     Serial.println("[ENC] Rotire STANGA -> SHIFT + TAB");
     if (bleKeyboard.isConnected()) {
-        bleKeyboard.press(KEY_LEFT_SHIFT);
-        bleKeyboard.press(KEY_TAB);
-        bleKeyboard.releaseAll();
+        bleKeyboard.tap(KEY_TAB, KEY_MOD_LSHIFT);
     } else {
         Serial.println("  [AVERTISMENT] Comanda netransmisa: telefonul NU este conectat prin Bluetooth!");
     }
@@ -84,7 +82,7 @@ void sendRotaryLeft() {
 void sendEnterKey() {
     Serial.println("[BTN SW] Apasare Scurta -> ENTER");
     if (bleKeyboard.isConnected()) {
-        bleKeyboard.write(KEY_RETURN);
+        bleKeyboard.tap(KEY_RETURN);
     } else {
         Serial.println("  [AVERTISMENT] Comanda netransmisa: telefonul NU este conectat prin Bluetooth!");
     }
@@ -93,7 +91,7 @@ void sendEnterKey() {
 void sendF12Key() {
     Serial.println("[BTN SW] Apasare Lunga -> F12 (Home Return)");
     if (bleKeyboard.isConnected()) {
-        bleKeyboard.write(KEY_F12);
+        bleKeyboard.tap(KEY_F12);
     } else {
         Serial.println("  [AVERTISMENT] Comanda netransmisa: telefonul NU este conectat prin Bluetooth!");
     }
@@ -102,7 +100,7 @@ void sendF12Key() {
 void sendMediaPlayPause() {
     Serial.println("[BTN 1] Media -> PLAY / PAUSE");
     if (bleKeyboard.isConnected()) {
-        bleKeyboard.write(KEY_MEDIA_PLAY_PAUSE);
+        bleKeyboard.tap(MEDIA_PLAY_PAUSE);
     } else {
         Serial.println("  [AVERTISMENT] Comanda netransmisa: telefonul NU este conectat prin Bluetooth!");
     }
@@ -111,7 +109,7 @@ void sendMediaPlayPause() {
 void sendMediaPrevious() {
     Serial.println("[BTN 2] Media -> PREVIOUS TRACK");
     if (bleKeyboard.isConnected()) {
-        bleKeyboard.write(KEY_MEDIA_PREVIOUS_TRACK);
+        bleKeyboard.tap(MEDIA_PREV_TRACK);
     } else {
         Serial.println("  [AVERTISMENT] Comanda netransmisa: telefonul NU este conectat prin Bluetooth!");
     }
@@ -120,7 +118,7 @@ void sendMediaPrevious() {
 void sendMediaNext() {
     Serial.println("[BTN 3] Media -> NEXT TRACK");
     if (bleKeyboard.isConnected()) {
-        bleKeyboard.write(KEY_MEDIA_NEXT_TRACK);
+        bleKeyboard.tap(MEDIA_NEXT_TRACK);
     } else {
         Serial.println("  [AVERTISMENT] Comanda netransmisa: telefonul NU este conectat prin Bluetooth!");
     }
@@ -203,7 +201,8 @@ void setup() {
     lastCleanA = cleanA;
     lastSampleUs = micros();
 
-    bleKeyboard.setDelay(10);
+    bleKeyboard.setTapDelay(20);
+    bleKeyboard.setKeyGap(20);
     bleKeyboard.begin();
 
     Serial.println("=========================================");
@@ -281,8 +280,9 @@ void loop() {
         else if (c == '<') sendMediaPrevious();
         else if (c == '>') sendMediaNext();
         else if (c == '?') {
-            Serial.printf("[Status] BLE Connected: %d | A=%d B=%d SW=%d BTN1=%d BTN2=%d BTN3=%d\n",
+            Serial.printf("[Status] BLE Connected: %d (Paired: %d) | A=%d B=%d SW=%d BTN1=%d BTN2=%d BTN3=%d\n",
                           bleKeyboard.isConnected() ? 1 : 0,
+                          bleKeyboard.isPaired() ? 1 : 0,
                           digitalRead(PIN_ENC_A), digitalRead(PIN_ENC_B),
                           digitalRead(PIN_BTN_SW), digitalRead(PIN_BTN_PLAY),
                           digitalRead(PIN_BTN_PREV), digitalRead(PIN_BTN_NEXT));

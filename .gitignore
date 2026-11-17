@@ -57,3 +57,7 @@ Thumbs.db
 # Adb debug dumps / screen capture files
 screen_*.png
 window_dump.xml
+
+# PlatformIO
+.pio/
+*.bak
