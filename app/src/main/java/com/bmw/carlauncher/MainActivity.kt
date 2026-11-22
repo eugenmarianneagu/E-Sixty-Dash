@@ -895,7 +895,7 @@ class MainActivity : AppCompatActivity() {
         btnNotifClose.isFocusableInTouchMode = true
         btnNotifClose.enableInstantClickOnTouch()
         btnNotifClose.setOnClickListener {
-            dismissCurrentNotificationWithAnim()
+            exitNotificationTabSequence()
         }
 
         btnNotifAction.isFocusable = true
@@ -4975,6 +4975,17 @@ class MainActivity : AppCompatActivity() {
                     .start()
             }
             .start()
+    }
+
+    private fun exitNotificationTabSequence() {
+        isNotificationWindowActive = false
+        centerCircle.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+        btnNotifAction.clearFocus()
+        btnNotifSpeak.clearFocus()
+        btnNotifPrev.clearFocus()
+        btnNotifNext.clearFocus()
+        btnNotifClose.clearFocus()
+        currentFocus?.clearFocus()
     }
 
     private fun dismissCurrentNotificationWithAnim() {
