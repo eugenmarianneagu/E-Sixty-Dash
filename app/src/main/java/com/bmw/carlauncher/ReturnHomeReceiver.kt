@@ -3,6 +3,7 @@ package com.bmw.carlauncher
 import android.bluetooth.BluetoothA2dp
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothHeadset
 import android.bluetooth.BluetoothProfile
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -31,6 +32,8 @@ class ReturnHomeReceiver : BroadcastReceiver() {
 
         val isA2dpConnect = (action == BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED &&
                 intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_CONNECTED)
+        val isHfpConnect = (action == BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED &&
+                intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_CONNECTED)
         val isHidConnect = (action == ACTION_HID_CONNECTION_STATE_CHANGED &&
                 intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_CONNECTED)
         val isAclConnect = (action == BluetoothDevice.ACTION_ACL_CONNECTED)
@@ -38,7 +41,7 @@ class ReturnHomeReceiver : BroadcastReceiver() {
         // ==============================================================
         // 1. CONECTARE BLUETOOTH LA DISPOZITIVUL SELECTAT
         // ==============================================================
-        if (isAclConnect || isA2dpConnect || isHidConnect) {
+        if (isAclConnect || isA2dpConnect || isHfpConnect || isHidConnect) {
             val device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
             } else {
@@ -163,13 +166,15 @@ class ReturnHomeReceiver : BroadcastReceiver() {
         val isAclDisconnect = (action == BluetoothDevice.ACTION_ACL_DISCONNECTED)
         val isA2dpDisconnect = (action == BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED &&
                 intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_DISCONNECTED)
+        val isHfpDisconnect = (action == BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED &&
+                intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_DISCONNECTED)
         val isHidDisconnect = (action == ACTION_HID_CONNECTION_STATE_CHANGED &&
                 intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_DISCONNECTED)
         val isBtOff = (action == android.bluetooth.BluetoothAdapter.ACTION_STATE_CHANGED &&
                 (intent.getIntExtra(android.bluetooth.BluetoothAdapter.EXTRA_STATE, -1) == android.bluetooth.BluetoothAdapter.STATE_OFF ||
                  intent.getIntExtra(android.bluetooth.BluetoothAdapter.EXTRA_STATE, -1) == android.bluetooth.BluetoothAdapter.STATE_TURNING_OFF))
 
-        if (isAclDisconnect || isA2dpDisconnect || isHidDisconnect || isBtOff) {
+        if (isAclDisconnect || isA2dpDisconnect || isHfpDisconnect || isHidDisconnect || isBtOff) {
             val device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
             } else {
@@ -256,7 +261,7 @@ class ReturnHomeReceiver : BroadcastReceiver() {
                     try {
                         pendingResult.finish()
                     } catch (_: Exception) {}
-                }, 2500L)
+                }, 700L)
             }
 
             return

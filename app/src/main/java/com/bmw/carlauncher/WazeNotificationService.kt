@@ -638,9 +638,9 @@ class WazeNotificationService : NotificationListenerService() {
         }
     }
 
-    private fun extractNavIconBitmap(notification: Notification, extras: android.os.Bundle): Bitmap? {
-        val mapsContext = try {
-            createPackageContext("com.google.android.apps.maps", Context.CONTEXT_IGNORE_SECURITY)
+    private fun extractNavIconBitmap(pkg: String, notification: Notification, extras: android.os.Bundle): Bitmap? {
+        val navContext = try {
+            createPackageContext(pkg, Context.CONTEXT_IGNORE_SECURITY)
         } catch (_: Exception) {
             this
         }
@@ -654,7 +654,7 @@ class WazeNotificationService : NotificationListenerService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val largeIcon = notification.getLargeIcon()
             if (largeIcon != null) {
-                val bmp = renderIconToBitmap(mapsContext, largeIcon)
+                val bmp = renderIconToBitmap(navContext, largeIcon)
                 if (bmp != null) return bmp
             }
         }
@@ -664,16 +664,16 @@ class WazeNotificationService : NotificationListenerService() {
             val iconObj = extras.get(Notification.EXTRA_LARGE_ICON)
             if (iconObj is Bitmap) return iconObj
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && iconObj is Icon) {
-                val bmp = renderIconToBitmap(mapsContext, iconObj)
+                val bmp = renderIconToBitmap(navContext, iconObj)
                 if (bmp != null) return bmp
             }
         } catch (_: Exception) {}
 
-        // 3. notification.smallIcon (in Google Maps, smallIcon contine sageata manevrei curente)
+        // 3. notification.smallIcon (in Google Maps contine sageata manevrei; in Waze contine iconita Waze)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val smallIcon = notification.smallIcon
             if (smallIcon != null) {
-                val bmp = renderIconToBitmap(mapsContext, smallIcon)
+                val bmp = renderIconToBitmap(navContext, smallIcon)
                 if (bmp != null) return bmp
             }
         }
@@ -682,7 +682,7 @@ class WazeNotificationService : NotificationListenerService() {
         try {
             val iconObj = extras.get("android.smallIcon") ?: extras.get(Notification.EXTRA_SMALL_ICON)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && iconObj is Icon) {
-                val bmp = renderIconToBitmap(mapsContext, iconObj)
+                val bmp = renderIconToBitmap(navContext, iconObj)
                 if (bmp != null) return bmp
             }
         } catch (_: Exception) {}
@@ -693,12 +693,12 @@ class WazeNotificationService : NotificationListenerService() {
             if (pic is Bitmap) return pic
         } catch (_: Exception) {}
 
-        // 6. Resursa directa notification.icon din mapsContext
+        // 6. Resursa directa notification.icon din navContext
         @Suppress("DEPRECATION")
         val iconRes = notification.icon
         if (iconRes != 0) {
             try {
-                val d = androidx.core.content.ContextCompat.getDrawable(mapsContext, iconRes)
+                val d = androidx.core.content.ContextCompat.getDrawable(navContext, iconRes)
                 if (d != null) {
                     return drawableToBitmap(d)
                 }
@@ -732,7 +732,7 @@ class WazeNotificationService : NotificationListenerService() {
         if (sbn == null) return
         val pkg = sbn.packageName ?: return
 
-        // 1. Asculta notificarile Google Maps
+        // 1. Asculta notificarile Google Maps & Waze
         if (pkg == "com.google.android.apps.maps") {
             val notification = sbn.notification ?: return
             val extras = notification.extras ?: return
@@ -745,7 +745,7 @@ class WazeNotificationService : NotificationListenerService() {
 
             val combinedText = "$title $text $subText $bigText $ticker"
             val directionSymbol = determineDirectionSymbol(combinedText) ?: "↑"
-            val navIconBitmap = extractNavIconBitmap(notification, extras)
+            val navIconBitmap = extractNavIconBitmap(pkg, notification, extras)
 
             val sourceName = "GOOGLE MAPS"
 
@@ -760,6 +760,73 @@ class WazeNotificationService : NotificationListenerService() {
                     directionSymbol = directionSymbol
                 )
                 WazeNavManager.update(navData)
+            }
+        } else if (pkg == "com.waze") {
+            val notification = sbn.notification ?: return
+            val extras = notification.extras ?: return
+
+            val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim() ?: ""
+            val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim() ?: ""
+            val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()?.trim() ?: ""
+            val bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.trim() ?: ""
+            val ticker = notification.tickerText?.toString()?.trim() ?: ""
+            val channelId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) notification.channelId ?: "" else ""
+
+            val textLower = text.lowercase(Locale.getDefault())
+            val isGenericRunning = channelId == "CLOSE_WAZE_CHANNEL" ||
+                    ((title.isEmpty() || title.equals("Waze", ignoreCase = true)) &&
+                            (textLower.contains("running") || textLower.contains("tap to open") ||
+                                    textLower.contains("rulează") || textLower.contains("ruleaza") ||
+                                    textLower.contains("atinge") || textLower.contains("apasă") ||
+                                    textLower.contains("apasa") || text.isEmpty()))
+
+            // Nu suprascrie indicațiile live de la Google Maps doar cu statusul static „Waze running”
+            if (isGenericRunning &&
+                WazeNavManager.currentData.isNavigating &&
+                WazeNavManager.currentData.sourceApp == "GOOGLE MAPS"
+            ) {
+                return
+            }
+
+            val navIconBitmap = extractNavIconBitmap(pkg, notification, extras)
+            if (isGenericRunning) {
+                WazeNavManager.update(
+                    WazeNavData(
+                        distance = "WAZE ACTIV",
+                        road = "Rulează în fundal",
+                        eta = "Apasă NAVIGATIE pt deschidere",
+                        isNavigating = true,
+                        iconBitmap = navIconBitmap,
+                        sourceApp = "WAZE",
+                        directionSymbol = "↑"
+                    )
+                )
+            } else {
+                val combinedText = "$title $text $subText $bigText $ticker"
+                val directionSymbol = determineDirectionSymbol(combinedText) ?: "↑"
+                val displayDistance = if (title.isNotEmpty() && !title.equals("Waze", ignoreCase = true)) {
+                    title
+                } else {
+                    "WAZE"
+                }
+                val displayRoad = when {
+                    bigText.isNotEmpty() -> bigText
+                    text.isNotEmpty() -> text
+                    else -> "Navigare activă"
+                }
+                val displayEta = if (subText.isNotEmpty()) subText else "Waze activ"
+
+                WazeNavManager.update(
+                    WazeNavData(
+                        distance = displayDistance,
+                        road = displayRoad,
+                        eta = displayEta,
+                        isNavigating = true,
+                        iconBitmap = navIconBitmap,
+                        sourceApp = "WAZE",
+                        directionSymbol = directionSymbol
+                    )
+                )
             }
         }
 
@@ -904,17 +971,47 @@ class WazeNotificationService : NotificationListenerService() {
         if (sbn == null) return
         val pkg = sbn.packageName ?: return
 
-        if (pkg == "com.google.android.apps.maps") {
-            val navData = WazeNavData(
-                distance = "--",
-                road = "Navigație oprită",
-                eta = "Porniți Google Maps pentru indicații",
-                isNavigating = false,
-                iconBitmap = null,
-                sourceApp = "GOOGLE MAPS",
-                directionSymbol = "↑"
-            )
-            WazeNavManager.update(navData)
+        if (pkg == "com.google.android.apps.maps" && WazeNavManager.currentData.sourceApp == "GOOGLE MAPS") {
+            val remainingWaze = try {
+                activeNotifications?.firstOrNull { it.packageName == "com.waze" }
+            } catch (_: Exception) { null }
+            if (remainingWaze != null) {
+                onNotificationPosted(remainingWaze)
+            } else {
+                WazeNavManager.update(
+                    WazeNavData(
+                        distance = "--",
+                        road = "Navigație oprită",
+                        eta = "Așteptare indicații...",
+                        isNavigating = false,
+                        iconBitmap = null,
+                        sourceApp = "GOOGLE MAPS",
+                        directionSymbol = "↑"
+                    )
+                )
+            }
+        } else if (pkg == "com.waze" && WazeNavManager.currentData.sourceApp == "WAZE") {
+            val remainingWaze = try {
+                activeNotifications?.firstOrNull { it.packageName == "com.waze" && it.key != sbn.key }
+            } catch (_: Exception) { null }
+            val remainingMaps = try {
+                activeNotifications?.firstOrNull { it.packageName == "com.google.android.apps.maps" }
+            } catch (_: Exception) { null }
+            when {
+                remainingWaze != null -> onNotificationPosted(remainingWaze)
+                remainingMaps != null -> onNotificationPosted(remainingMaps)
+                else -> WazeNavManager.update(
+                    WazeNavData(
+                        distance = "--",
+                        road = "Navigație oprită",
+                        eta = "Așteptare indicații...",
+                        isNavigating = false,
+                        iconBitmap = null,
+                        sourceApp = "WAZE",
+                        directionSymbol = "↑"
+                    )
+                )
+            }
         }
 
         if (pkg == ExternalMediaManager.currentData.packageName) {

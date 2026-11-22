@@ -1,5 +1,6 @@
 package com.bmw.carlauncher
 
+import android.Manifest
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.ActivityOptions
@@ -7,19 +8,26 @@ import android.app.PendingIntent
 import android.bluetooth.BluetoothA2dp
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothHeadset
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.telephony.PhoneStateListener
+import android.telephony.TelephonyCallback
+import android.telephony.TelephonyManager
 import android.text.TextUtils
 import android.util.Log
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.annotation.RequiresApi
+import androidx.core.content.ContextCompat
 
 class BMWAccessibilityService : AccessibilityService() {
 
@@ -28,20 +36,29 @@ class BMWAccessibilityService : AccessibilityService() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val btDynamicReceiver = ReturnHomeReceiver()
     private var isBtReceiverRegistered = false
+    private var telephonyManager: TelephonyManager? = null
+    private var isCallStateListenerRegistered = false
+    private var telephonyCallbackApi31: Any? = null
+    @Suppress("DEPRECATION")
+    private var legacyPhoneStateListener: PhoneStateListener? = null
+    private var lastObservedTelephonyState: Int = TelephonyManager.CALL_STATE_IDLE
 
     override fun onCreate() {
         super.onCreate()
         instance = this
         registerBtDynamicReceiver()
+        registerCallStateListener()
     }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
         registerBtDynamicReceiver()
+        registerCallStateListener()
         try {
             val info = serviceInfo ?: AccessibilityServiceInfo()
-            info.eventTypes = AccessibilityEvent.TYPES_ALL_MASK
+            info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
+                    AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
             info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
             info.flags = info.flags or
                     AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS or
@@ -53,6 +70,83 @@ class BMWAccessibilityService : AccessibilityService() {
         }
     }
 
+    private fun registerCallStateListener() {
+        if (isCallStateListenerRegistered) return
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "READ_PHONE_STATE lipsă - nu se poate înregistra TelephonyCallback.")
+            return
+        }
+        try {
+            val tm = getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager ?: return
+            telephonyManager = tm
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                registerTelephonyCallbackApi31(tm)
+            } else {
+                @Suppress("DEPRECATION")
+                val listener = object : PhoneStateListener() {
+                    @Deprecated("Deprecated in Java")
+                    override fun onCallStateChanged(state: Int, phoneNumber: String?) {
+                        handleTelephonyStateChange(state, phoneNumber)
+                    }
+                }
+                @Suppress("DEPRECATION")
+                tm.listen(listener, PhoneStateListener.LISTEN_CALL_STATE)
+                legacyPhoneStateListener = listener
+            }
+            isCallStateListenerRegistered = true
+            Log.i(TAG, "Persistent call state listener registered in BMWAccessibilityService")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to register call state listener: ${e.message}")
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.S)
+    private fun registerTelephonyCallbackApi31(tm: TelephonyManager) {
+        val cb = object : TelephonyCallback(), TelephonyCallback.CallStateListener {
+            override fun onCallStateChanged(state: Int) {
+                handleTelephonyStateChange(state, null)
+            }
+        }
+        tm.registerTelephonyCallback(mainExecutor, cb)
+        telephonyCallbackApi31 = cb
+    }
+
+    private fun handleTelephonyStateChange(state: Int, number: String?) {
+        val prev = lastObservedTelephonyState
+        lastObservedTelephonyState = state
+        Log.i(TAG, "TelephonyCallback state change: $prev -> $state (hasNumber=${!number.isNullOrBlank()})")
+        when (state) {
+            TelephonyManager.CALL_STATE_RINGING -> {
+                CallOverlayManager.onIncomingCall(this, number = number)
+            }
+            TelephonyManager.CALL_STATE_OFFHOOK -> {
+                CallOverlayManager.onOffhook(this)
+            }
+            TelephonyManager.CALL_STATE_IDLE -> {
+                if (prev != TelephonyManager.CALL_STATE_IDLE || CallOverlayManager.isShowing()) {
+                    CallOverlayManager.onCallEnded(this)
+                }
+            }
+        }
+    }
+
+    private fun unregisterCallStateListener() {
+        if (!isCallStateListenerRegistered) return
+        try {
+            val tm = telephonyManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val cb = telephonyCallbackApi31 as? TelephonyCallback
+                if (cb != null) tm?.unregisterTelephonyCallback(cb)
+                telephonyCallbackApi31 = null
+            } else {
+                @Suppress("DEPRECATION")
+                legacyPhoneStateListener?.let { tm?.listen(it, PhoneStateListener.LISTEN_NONE) }
+                legacyPhoneStateListener = null
+            }
+        } catch (_: Exception) {}
+        isCallStateListenerRegistered = false
+    }
+
     private fun registerBtDynamicReceiver() {
         if (isBtReceiverRegistered) return
         try {
@@ -60,6 +154,7 @@ class BMWAccessibilityService : AccessibilityService() {
                 addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
                 addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
                 addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED)
+                addAction(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED)
                 addAction(ReturnHomeReceiver.ACTION_HID_CONNECTION_STATE_CHANGED)
                 addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
             }
@@ -77,6 +172,9 @@ class BMWAccessibilityService : AccessibilityService() {
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
         Log.i(TAG, "GLOBAL onKeyEvent: keyCode=${event.keyCode} (${KeyEvent.keyCodeToString(event.keyCode)}), action=${event.action}")
+        if (CallOverlayManager.isShowing() && CallOverlayManager.handleHardwareKey(event)) {
+            return true
+        }
         when (event.keyCode) {
             KeyEvent.KEYCODE_F12,
             KeyEvent.KEYCODE_F11,
@@ -135,20 +233,20 @@ class BMWAccessibilityService : AccessibilityService() {
         }, delayMs)
     }
 
-    private fun scheduleLockScreen(delayMs: Long = 250L) {
+    private fun scheduleLockScreen(delayMs: Long = 0L) {
         mainHandler.removeCallbacksAndMessages(null)
         isClearingRecents = false
-        mainHandler.postDelayed({
-            try {
-                performGlobalAction(GLOBAL_ACTION_HOME)
-            } catch (_: Exception) {}
-            mainHandler.postDelayed({
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    val locked = performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
-                    Log.i(TAG, "clearRecentsAndLockScreen: lockScreen executed ($locked)")
-                }
-            }, 80L)
-        }, delayMs)
+        val lockAction = {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val locked = performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+                Log.i(TAG, "clearRecentsAndLockScreen: lockScreen executed ($locked)")
+            }
+        }
+        if (delayMs <= 0L) {
+            lockAction()
+        } else {
+            mainHandler.postDelayed({ lockAction() }, delayMs)
+        }
     }
 
     fun startClearRecentsAndLock() {
@@ -159,43 +257,43 @@ class BMWAccessibilityService : AccessibilityService() {
         }
         lastClearAndLockTimestamp = now
 
-        Log.i(TAG, "startClearRecentsAndLock() called")
+        Log.i(TAG, "startClearRecentsAndLock() called (mod instant)")
         mainHandler.removeCallbacksAndMessages(null)
         isClearingRecents = true
 
-        // 1. Minimizăm orice aplicație activă de pe ecran pentru ca ecranul să fie pe Home
-        performGlobalAction(GLOBAL_ACTION_HOME)
+        // 1. Deschidem direct ecranul Recents fără delay (fără HOME intermediar)
+        val recentsSuccess = performGlobalAction(GLOBAL_ACTION_RECENTS)
+        Log.i(TAG, "performGlobalAction(GLOBAL_ACTION_RECENTS) returned: $recentsSuccess")
 
-        // 2. Deschidem ecranul Recents după 150ms
-        mainHandler.postDelayed({
-            val recentsSuccess = performGlobalAction(GLOBAL_ACTION_RECENTS)
-            Log.i(TAG, "performGlobalAction(GLOBAL_ACTION_RECENTS) returned: $recentsSuccess")
-        }, 150L)
-
-        // 3. Încercări repetate de apăsare pe butonul de curățare Recents
-        val attemptDelays = longArrayOf(350L, 500L, 700L, 950L)
+        // 2. Încercări rapide de apăsare pe butonul de curățare Recents (complementar cu onAccessibilityEvent)
+        val attemptDelays = longArrayOf(120L, 250L, 400L, 550L)
         for (delay in attemptDelays) {
             mainHandler.postDelayed({
-                if (isClearingRecents && tryClickClearButton()) {
-                    scheduleLockScreen(250L)
+                if (isClearingRecents && tryClickClearButton(allowTextFallback = false)) {
+                    // Blocare imediată sincronă (0ms): removeTask s-a executat deja în ACTION_CLICK
+                    scheduleLockScreen(0L)
                 }
             }, delay)
         }
 
-        // 4. Fallback: dacă lista era goală sau nu s-a găsit butonul, revino pe Home și blochează
+        // 3. Fallback: dacă lista era deja goală sau butonul nu a apărut în 700ms, blochează imediat
         mainHandler.postDelayed({
             if (isClearingRecents) {
-                tryClickClearButton()
-                performGlobalAction(GLOBAL_ACTION_HOME)
-                scheduleLockScreen(200L)
+                tryClickClearButton(allowTextFallback = true)
+                scheduleLockScreen(0L)
             }
-        }, 1150L)
+        }, 700L)
     }
 
-    private fun tryClickClearButton(): Boolean {
+    private fun tryClickClearButton(allowTextFallback: Boolean = false): Boolean {
         try {
             val root = rootInActiveWindow ?: return false
-            // Căutare după ID-ul specific Xiaomi MIUI / HyperOS
+            val rootPkg = root.packageName?.toString() ?: ""
+            if (!rootPkg.contains("miui.home") && !rootPkg.contains("launcher") && !rootPkg.contains("systemui")) {
+                return false
+            }
+
+            // Căutare rapidă după ID-ul specific Xiaomi MIUI / HyperOS (1 singur apel IPC)
             val nodes = root.findAccessibilityNodeInfosByViewId("com.miui.home:id/clearAnimView")
             if (!nodes.isNullOrEmpty()) {
                 for (node in nodes) {
@@ -208,16 +306,18 @@ class BMWAccessibilityService : AccessibilityService() {
                 }
             }
 
-            // Căutare alternativă după text sau descriere
-            val textCandidates = listOf("Clear all Recents", "Ștergeți", "Șterge", "Curăță", "Clear all", "Clear")
-            for (text in textCandidates) {
-                val found = root.findAccessibilityNodeInfosByText(text)
-                for (node in found) {
-                    if (node.isClickable) {
-                        val clicked = node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                        Log.i(TAG, "Clear button found by text '$text' and clicked: $clicked")
-                        isClearingRecents = false
-                        return true
+            // Căutare alternativă după text doar pe non-MIUI sau la fallback final (evită blocarea main thread)
+            if (allowTextFallback || !rootPkg.contains("miui.home")) {
+                val textCandidates = listOf("Clear all Recents", "Ștergeți", "Șterge", "Curăță", "Clear all", "Clear")
+                for (text in textCandidates) {
+                    val found = root.findAccessibilityNodeInfosByText(text)
+                    for (node in found) {
+                        if (node.isClickable) {
+                            val clicked = node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                            Log.i(TAG, "Clear button found by text '$text' and clicked: $clicked")
+                            isClearingRecents = false
+                            return true
+                        }
                     }
                 }
             }
@@ -229,13 +329,17 @@ class BMWAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (isClearingRecents && event != null) {
+            val eventType = event.eventType
+            if (eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
+                eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+            ) {
+                return
+            }
             val pkg = event.packageName?.toString() ?: ""
             if (pkg.contains("miui.home") || pkg.contains("launcher") || pkg.contains("systemui")) {
-                mainHandler.postDelayed({
-                    if (isClearingRecents && tryClickClearButton()) {
-                        scheduleLockScreen(250L)
-                    }
-                }, 50L)
+                if (tryClickClearButton(allowTextFallback = false)) {
+                    scheduleLockScreen(0L)
+                }
             }
         }
     }
@@ -245,6 +349,8 @@ class BMWAccessibilityService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        unregisterCallStateListener()
+        CallOverlayManager.dismiss(this)
         if (isBtReceiverRegistered) {
             try {
                 unregisterReceiver(btDynamicReceiver)

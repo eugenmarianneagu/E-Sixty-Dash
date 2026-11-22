@@ -1518,6 +1518,68 @@
 
                 </RelativeLayout>
 
+                <!-- 7. PHONE / APELURI RECENTE VIEW -->
+                <LinearLayout
+                    android:id="@+id/view_center_phone"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_circle_clip"
+                    android:clipToOutline="true"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:padding="22dp"
+                    android:visibility="gone">
+
+                    <ImageView
+                        android:id="@+id/iv_center_phone_icon"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:src="@drawable/ic_gauge_phone"
+                        app:tint="@color/bmw_amber"
+                        android:scaleType="fitCenter" />
+
+                    <TextView
+                        android:id="@+id/tv_center_phone_title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="PHONE"
+                        android:textColor="@color/bmw_white"
+                        android:textSize="19sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.14" />
+
+                    <TextView
+                        android:id="@+id/tv_center_phone_last_call"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:gravity="center"
+                        android:text="Apeluri recente"
+                        android:textColor="@color/bmw_amber_light"
+                        android:textSize="11.5sp"
+                        android:textStyle="bold"
+                        android:maxLines="1"
+                        android:ellipsize="end" />
+
+                    <TextView
+                        android:id="@+id/btn_center_phone_open"
+                        android:layout_width="wrap_content"
+                        android:layout_height="32dp"
+                        android:layout_marginTop="12dp"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:gravity="center"
+                        android:background="@drawable/bg_notif_action_btn"
+                        android:text="APELURI RECENTE"
+                        android:textColor="@color/bmw_white"
+                        android:textSize="10.5sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.06"
+                        android:clickable="true"
+                        android:focusable="false" />
+                </LinearLayout>
+
             </FrameLayout>
         </FrameLayout>
 
@@ -2607,6 +2669,58 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Neselectat (Apasă pentru selectare)"
+                                android:textColor="@color/bmw_gray_text"
+                                android:textSize="10sp" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="ALEGE ›"
+                            android:textColor="@color/bmw_amber"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <!-- 5. Aplicație Navigație -->
+                    <LinearLayout
+                        android:id="@+id/btn_nav_app_select"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:background="@drawable/bg_speed_badge"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:padding="12dp"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:src="@drawable/ic_gauge_navi"
+                            app:tint="@color/bmw_amber" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="10dp"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Aplicație Navigație"
+                                android:textColor="@color/bmw_white"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tv_nav_app_status"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Google Maps"
                                 android:textColor="@color/bmw_gray_text"
                                 android:textSize="10sp" />
                         </LinearLayout>

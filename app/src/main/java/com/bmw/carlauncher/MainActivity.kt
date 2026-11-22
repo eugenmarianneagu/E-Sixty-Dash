@@ -127,21 +127,15 @@ class MainActivity : AppCompatActivity() {
         var instance: MainActivity? = null
 
         fun onPhoneRinging(context: Context, number: String?) {
-            instance?.runOnUiThread {
-                instance?.showIncomingCallUI(number, null)
-            }
+            CallOverlayManager.onIncomingCall(context, number = number)
         }
 
         fun onPhoneOffhook(context: Context) {
-            instance?.runOnUiThread {
-                instance?.showActiveCallUI()
-            }
+            CallOverlayManager.onOffhook(context)
         }
 
         fun onPhoneIdle(context: Context) {
-            instance?.runOnUiThread {
-                instance?.dismissCallUI()
-            }
+            CallOverlayManager.onCallEnded(context)
         }
 
         fun closeLauncher() {
@@ -191,7 +185,7 @@ class MainActivity : AppCompatActivity() {
     )
 
     enum class CenterMode {
-        BMW, MEDIA, RADIO, MAP, ENERGY, NOTIFICATION
+        BMW, MEDIA, PHONE, RADIO, MAP, ENERGY, NOTIFICATION
     }
 
     enum class ActiveMediaSource {
@@ -324,6 +318,11 @@ class MainActivity : AppCompatActivity() {
 
     // Car Notification Center View UI
     private lateinit var viewCenterNotification: RelativeLayout
+
+    // Phone Center View UI
+    private lateinit var viewCenterPhone: LinearLayout
+    private lateinit var tvCenterPhoneLastCall: TextView
+    private lateinit var btnCenterPhoneOpen: TextView
     private lateinit var notifHeaderRow: RelativeLayout
     private lateinit var notifCenterContent: LinearLayout
     private lateinit var notifBottomActions: LinearLayout
@@ -354,8 +353,11 @@ class MainActivity : AppCompatActivity() {
     private var wasYouTubePlayingBeforeVoice: Boolean = false
     private var wasExternalMediaPlayingBeforeVoice: Boolean = false
     private var wasLocalMusicPlayingBeforeVoice: Boolean = false
-    private var wasRadioPlayingBeforeCall: Boolean = false
+    private var preCallMediaSourceToResume: ActiveMediaSource? = null
     private var lastRadioPlayingRealtimeMs: Long = 0L
+    private var lastLocalMusicPlayingRealtimeMs: Long = 0L
+    private var lastExternalMediaPlayingRealtimeMs: Long = 0L
+    private var lastYoutubeWebPlayingRealtimeMs: Long = 0L
     private val callResumeRadioHandler = Handler(Looper.getMainLooper())
 
     // Favorites Overlay UI
@@ -408,6 +410,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvNotifAccessStatus: TextView
     private lateinit var btnCarBtSelect: LinearLayout
     private lateinit var tvCarBtStatus: TextView
+    private lateinit var btnNavAppSelect: LinearLayout
+    private lateinit var tvNavAppStatus: TextView
     private var tvNavSourceLabel: TextView? = null
     private var centerNavIconImg: ImageView? = null
 
@@ -529,6 +533,8 @@ class MainActivity : AppCompatActivity() {
                         applyShowWhenLocked(true)
                         resumeMusicPlayback()
                         BMWAccessibilityService.bringToForeground(this@MainActivity)
+                    } else if (isCarDevice && state == BluetoothProfile.STATE_DISCONNECTED) {
+                        handleCarDisconnected("HFP_DISCONNECTED: $devName")
                     }
                 }
                 BluetoothDevice.ACTION_ACL_CONNECTED -> {
@@ -842,6 +848,13 @@ class MainActivity : AppCompatActivity() {
         viewCenterNotification = findViewById(R.id.view_center_notification)
         viewCenterNotification.outlineProvider = circleOutlineProvider
         viewCenterNotification.clipToOutline = true
+
+        // Phone Center View
+        viewCenterPhone = findViewById(R.id.view_center_phone)
+        viewCenterPhone.outlineProvider = circleOutlineProvider
+        viewCenterPhone.clipToOutline = true
+        tvCenterPhoneLastCall = findViewById(R.id.tv_center_phone_last_call)
+        btnCenterPhoneOpen = findViewById(R.id.btn_center_phone_open)
         notifHeaderRow = findViewById(R.id.notif_header_row)
         notifCenterContent = findViewById(R.id.notif_center_content)
         notifBottomActions = findViewById(R.id.notif_bottom_actions)
@@ -1056,6 +1069,9 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread {
                     if (isPlaying) {
                         activeMediaSource = ActiveMediaSource.LOCAL_PLAYER
+                        lastLocalMusicPlayingRealtimeMs = android.os.SystemClock.elapsedRealtime()
+                    } else if (activeMediaSource == ActiveMediaSource.LOCAL_PLAYER && lastLocalMusicPlayingRealtimeMs > 0L) {
+                        lastLocalMusicPlayingRealtimeMs = android.os.SystemClock.elapsedRealtime()
                     }
                     if (activeMediaSource == ActiveMediaSource.LOCAL_PLAYER && currentMode == CenterMode.MEDIA && !isYouTubeWebMode) {
                         updatePlayPauseIcon(isPlaying)
@@ -1148,8 +1164,11 @@ class MainActivity : AppCompatActivity() {
         tvNotifAccessStatus = findViewById(R.id.tv_notif_access_status)
         btnCarBtSelect = findViewById(R.id.btn_car_bt_select)
         tvCarBtStatus = findViewById(R.id.tv_car_bt_status)
+        btnNavAppSelect = findViewById(R.id.btn_nav_app_select)
+        tvNavAppStatus = findViewById(R.id.tv_nav_app_status)
 
         tvNavSourceLabel = findViewById(R.id.tv_nav_source_label)
+        tvNavSourceLabel?.text = "NAVIGARE ${getSelectedNavAppName().uppercase()}"
         centerNavIconImg = findViewById(R.id.center_nav_icon_img)
 
         initSettingsOverlay()
@@ -1206,6 +1225,8 @@ class MainActivity : AppCompatActivity() {
         viewCenterMedia.enableInstantClickOnTouch()
         youtubeCircleTouchOverlay.enableInstantClickOnTouch()
         viewCenterEnergy.enableInstantClickOnTouch()
+        viewCenterPhone.enableInstantClickOnTouch()
+        btnCenterPhoneOpen.enableInstantClickOnTouch()
 
         // Butoane din ferestrele auxiliare - clic instant la prima atingere
         val overlayButtons = listOf(
@@ -1480,6 +1501,11 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread {
                     val stateChanged = (isYouTubeWebPlaying != playing)
                     isYouTubeWebPlaying = playing
+                    if (playing) {
+                        lastYoutubeWebPlayingRealtimeMs = android.os.SystemClock.elapsedRealtime()
+                    } else if (stateChanged && lastYoutubeWebPlayingRealtimeMs > 0L) {
+                        lastYoutubeWebPlayingRealtimeMs = android.os.SystemClock.elapsedRealtime()
+                    }
                     if (playing && stateChanged) {
                         controller?.pause()
                         try {
@@ -1861,7 +1887,7 @@ class MainActivity : AppCompatActivity() {
                         controller?.let { c ->
                             if (c.isPlaying) {
                                 lastRadioPlayingRealtimeMs = 0L
-                                wasRadioPlayingBeforeCall = false
+                                preCallMediaSourceToResume = null
                                 c.pause()
                                 updatePlayPauseIcon(false)
                             } else {
@@ -1879,6 +1905,8 @@ class MainActivity : AppCompatActivity() {
                     if (isYouTubeWebMode || activeMediaSource == ActiveMediaSource.YOUTUBE_WEB) {
                         val isCurrentlyPlaying = isCurrentlyPlayingState
                         if (isCurrentlyPlaying) {
+                            lastYoutubeWebPlayingRealtimeMs = 0L
+                            preCallMediaSourceToResume = null
                             youtubeWebView?.evaluateJavascript(
                                 "window.__bmwUserPaused = true; var v = document.querySelector('video'); if (v) v.pause();",
                                 null
@@ -1893,6 +1921,10 @@ class MainActivity : AppCompatActivity() {
                         return@setOnClickListener
                     }
                     if (activeMediaSource == ActiveMediaSource.LOCAL_PLAYER) {
+                        if (LocalMusicPlayer.isPlaying) {
+                            lastLocalMusicPlayingRealtimeMs = 0L
+                            preCallMediaSourceToResume = null
+                        }
                         LocalMusicPlayer.togglePlayPause()
                         updatePlayPauseIcon(LocalMusicPlayer.isPlaying)
                         return@setOnClickListener
@@ -1902,6 +1934,8 @@ class MainActivity : AppCompatActivity() {
                     val isActuallyPlaying = (pbState == PlaybackState.STATE_PLAYING || pbState == PlaybackState.STATE_BUFFERING)
 
                     if (isActuallyPlaying) {
+                        lastExternalMediaPlayingRealtimeMs = 0L
+                        preCallMediaSourceToResume = null
                         mc?.transportControls?.pause()
                         val am = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
                         am?.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PAUSE))
@@ -1943,17 +1977,23 @@ class MainActivity : AppCompatActivity() {
                 }
                 else -> {
                     if (LocalMusicPlayer.isPlaying) {
+                        lastLocalMusicPlayingRealtimeMs = 0L
+                        preCallMediaSourceToResume = null
                         LocalMusicPlayer.pause()
                         updatePlayPauseIcon(false)
                     } else if (controller?.isPlaying == true) {
                         lastRadioPlayingRealtimeMs = 0L
-                        wasRadioPlayingBeforeCall = false
+                        preCallMediaSourceToResume = null
                         controller?.pause()
                     } else if (isYouTubeWebMode && isYouTubeWebPlaying) {
+                        lastYoutubeWebPlayingRealtimeMs = 0L
+                        preCallMediaSourceToResume = null
                         youtubeWebView?.evaluateJavascript("window.__bmwUserPaused = true; var v = document.querySelector('video'); if (v) v.pause();", null)
                         isYouTubeWebPlaying = false
                         updatePlayPauseIcon(false)
                     } else if (ExternalMediaManager.currentData.isPlaying) {
+                        lastExternalMediaPlayingRealtimeMs = 0L
+                        preCallMediaSourceToResume = null
                         val mc = ExternalMediaManager.getActiveMusicController(this)
                         if (mc != null) {
                             mc.transportControls.pause()
@@ -2119,6 +2159,17 @@ class MainActivity : AppCompatActivity() {
             cycleCenterMode()
         }
 
+        viewCenterPhone.setOnClickListener {
+            cycleCenterMode()
+        }
+        viewCenterPhone.setOnLongClickListener {
+            showRecentCallsOverlay()
+            true
+        }
+        btnCenterPhoneOpen.setOnClickListener {
+            showRecentCallsOverlay()
+        }
+
         youtubeCircleTouchOverlay.setOnClickListener {
             cycleCenterMode()
         }
@@ -2201,6 +2252,7 @@ class MainActivity : AppCompatActivity() {
     private fun getViewForMode(mode: CenterMode): View = when (mode) {
         CenterMode.BMW -> viewCenterBmw
         CenterMode.MEDIA -> viewCenterMedia
+        CenterMode.PHONE -> viewCenterPhone
         CenterMode.RADIO -> viewCenterRadio
         CenterMode.MAP -> viewCenterWaze
         CenterMode.ENERGY -> viewCenterEnergy
@@ -2221,8 +2273,9 @@ class MainActivity : AppCompatActivity() {
             when (currentMode) {
                 CenterMode.BMW -> CenterMode.NOTIFICATION
                 CenterMode.NOTIFICATION -> CenterMode.MEDIA
-                CenterMode.MEDIA -> CenterMode.MAP
-                CenterMode.RADIO -> CenterMode.MAP
+                CenterMode.MEDIA -> CenterMode.PHONE
+                CenterMode.RADIO -> CenterMode.PHONE
+                CenterMode.PHONE -> CenterMode.MAP
                 CenterMode.MAP -> CenterMode.ENERGY
                 CenterMode.ENERGY -> CenterMode.BMW
             }
@@ -2230,7 +2283,8 @@ class MainActivity : AppCompatActivity() {
             when (currentMode) {
                 CenterMode.BMW -> CenterMode.ENERGY
                 CenterMode.ENERGY -> CenterMode.MAP
-                CenterMode.MAP -> CenterMode.MEDIA
+                CenterMode.MAP -> CenterMode.PHONE
+                CenterMode.PHONE -> CenterMode.MEDIA
                 CenterMode.MEDIA -> CenterMode.NOTIFICATION
                 CenterMode.RADIO -> CenterMode.NOTIFICATION
                 CenterMode.NOTIFICATION -> CenterMode.BMW
@@ -2293,10 +2347,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateWazeUI(data: WazeNavData) {
         centerWazeDistance.text = data.distance
-        centerWazeRoad.text = data.road
+        if (data.isNavigating) {
+            centerWazeRoad.text = data.road
+            tvNavSourceLabel?.text = "NAVIGARE ${data.sourceApp}"
+        } else {
+            val selectedNav = getSelectedNavAppName()
+            centerWazeRoad.text = "Porniți o rută în $selectedNav"
+            tvNavSourceLabel?.text = "NAVIGARE ${selectedNav.uppercase()}"
+        }
         centerWazeEta.text = data.eta
-
-        tvNavSourceLabel?.text = "NAVIGARE ${data.sourceApp}"
 
         if (data.iconBitmap != null) {
             centerNavIconImg?.setImageBitmap(data.iconBitmap)
@@ -2449,6 +2508,10 @@ class MainActivity : AppCompatActivity() {
             updateNotificationCenterView()
         } else {
             notifDismissHandler.removeCallbacks(notifDismissRunnable)
+        }
+
+        if (currentMode == CenterMode.PHONE) {
+            updateCenterPhonePreview()
         }
 
         if (currentMode == CenterMode.RADIO) {
@@ -2695,15 +2758,42 @@ class MainActivity : AppCompatActivity() {
         textClock.text = timeFormat.format(now)
     }
 
+    private fun getSelectedNavAppPackage(): String {
+        val prefs = getSharedPreferences("agama_settings", Context.MODE_PRIVATE)
+        val saved = prefs.getString("nav_app_package", null)
+        return if (!saved.isNullOrBlank()) saved else "com.google.android.apps.maps"
+    }
+
+    private fun getSelectedNavAppName(): String {
+        val prefs = getSharedPreferences("agama_settings", Context.MODE_PRIVATE)
+        val savedName = prefs.getString("nav_app_name", null)
+        if (!savedName.isNullOrBlank()) return savedName
+        val pkg = getSelectedNavAppPackage()
+        return try {
+            val ai = packageManager.getApplicationInfo(pkg, 0)
+            packageManager.getApplicationLabel(ai)?.toString()?.takeIf { it.isNotBlank() } ?: "Google Maps"
+        } catch (_: Exception) {
+            when (pkg) {
+                "com.waze" -> "Waze"
+                "com.google.android.apps.maps" -> "Google Maps"
+                else -> pkg
+            }
+        }
+    }
+
     private fun launchNavigationApp() {
-        val mapsPackage = "com.google.android.apps.maps"
+        val navPackage = getSelectedNavAppPackage()
+        val navName = getSelectedNavAppName()
         val pm = packageManager
-        val intent = pm.getLaunchIntentForPackage(mapsPackage)
-            ?: Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q="))
+        val intent = pm.getLaunchIntentForPackage(navPackage)?.apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        } ?: Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=")).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
         try {
             startActivity(intent)
         } catch (e: Exception) {
-            Toast.makeText(this, "Google Maps nu a fost gasit", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "$navName nu a fost găsit", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -3303,6 +3393,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun launchPhoneDialer() {
         try {
+            CallOverlayManager.markDialerLaunchedFromLauncher()
             val intent = Intent(Intent.ACTION_DIAL)
             startActivity(intent)
         } catch (e: Exception) {
@@ -3452,6 +3543,10 @@ class MainActivity : AppCompatActivity() {
         btnCarBtSelect.setOnClickListener {
             showCarBluetoothPicker()
         }
+
+        btnNavAppSelect.setOnClickListener {
+            showNavAppPicker(showAllApps = false)
+        }
     }
 
     private fun showSettingsOverlay() {
@@ -3475,6 +3570,8 @@ class MainActivity : AppCompatActivity() {
         } else {
             tvCarBtStatus.text = "Neselectat (Apasă pentru selectare)"
         }
+
+        tvNavAppStatus.text = getSelectedNavAppName()
 
         val isNotifGranted = CarNotificationListenerService.isNotificationAccessGranted(this)
         val isStorageGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager()
@@ -3559,6 +3656,138 @@ class MainActivity : AppCompatActivity() {
         builder.show()
     }
 
+    private fun showNavAppPicker(showAllApps: Boolean = false) {
+        val pm = packageManager
+        val prefs = getSharedPreferences("agama_settings", Context.MODE_PRIVATE)
+        val currentPkg = getSelectedNavAppPackage()
+
+        // Map package -> display label
+        val candidates = LinkedHashMap<String, String>()
+
+        fun addIfLaunchable(pkg: String) {
+            if (pkg.isBlank() || pkg == packageName || candidates.containsKey(pkg)) return
+            if (pm.getLaunchIntentForPackage(pkg) == null) return
+            val label = try {
+                val ai = pm.getApplicationInfo(pkg, 0)
+                pm.getApplicationLabel(ai)?.toString()?.trim()
+            } catch (_: Exception) {
+                null
+            }
+            if (!label.isNullOrEmpty()) {
+                candidates[pkg] = label
+            }
+        }
+
+        if (!showAllApps) {
+            // 1. Aplicații populare de navigație (ordinea preferată sus în listă)
+            val knownNavPackages = listOf(
+                "com.google.android.apps.maps",
+                "com.waze",
+                "com.sygic.aura",
+                "com.sygic.truck",
+                "com.here.app.maps",
+                "com.tomtom.gplay.navapp",
+                "com.tomtom.gplay.navapp.go",
+                "net.osmand",
+                "net.osmand.plus",
+                "com.generalmagic.magicearth",
+                "com.nng.igoprimoisr.javaclient",
+                "ru.yandex.yandexnavi",
+                "ru.yandex.yandexmaps",
+                "com.huawei.maps.app",
+                "com.mapfactor.navigator",
+                "com.mapswithme.maps.pro",
+                "app.organicmaps"
+            )
+            knownNavPackages.forEach { addIfLaunchable(it) }
+
+            // 2. Descoperire automată a tuturor aplicațiilor instalate care suportă geo: / google.navigation:
+            val navIntents = listOf(
+                Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0")),
+                Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=0,0"))
+            )
+            for (intent in navIntents) {
+                try {
+                    val resolved = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY.toLong()))
+                    } else {
+                        @Suppress("DEPRECATION")
+                        pm.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+                    }
+                    for (ri in resolved) {
+                        ri.activityInfo?.packageName?.let { addIfLaunchable(it) }
+                    }
+                } catch (_: Exception) {}
+            }
+
+            // Include aplicația curentă dacă a fost aleasă anterior din toate aplicațiile
+            addIfLaunchable(currentPkg)
+        } else {
+            // Toate aplicațiile instalate (cu launcher icon)
+            val mainIntent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) }
+            try {
+                val resolved = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    pm.queryIntentActivities(mainIntent, PackageManager.ResolveInfoFlags.of(0L))
+                } else {
+                    @Suppress("DEPRECATION")
+                    pm.queryIntentActivities(mainIntent, 0)
+                }
+                resolved
+                    .mapNotNull { ri ->
+                        val pkg = ri.activityInfo?.packageName ?: return@mapNotNull null
+                        if (pkg == packageName) return@mapNotNull null
+                        val label = ri.loadLabel(pm)?.toString()?.trim() ?: pkg
+                        pkg to label
+                    }
+                    .distinctBy { it.first }
+                    .sortedBy { it.second.lowercase(Locale.getDefault()) }
+                    .forEach { (pkg, label) -> candidates[pkg] = label }
+            } catch (_: Exception) {}
+        }
+
+        val entries = candidates.entries.toList()
+        if (entries.isEmpty() && !showAllApps) {
+            showNavAppPicker(showAllApps = true)
+            return
+        }
+
+        val labels = ArrayList<String>(entries.size + 1)
+        var selectedIndex = -1
+        entries.forEachIndexed { idx, (pkg, label) ->
+            labels.add(label)
+            if (pkg.equals(currentPkg, ignoreCase = true)) {
+                selectedIndex = idx
+            }
+        }
+        val hasMoreOption = !showAllApps
+        if (hasMoreOption) {
+            labels.add("Alege din toate aplicațiile...")
+        }
+
+        val builder = AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+        builder.setTitle(if (showAllApps) "Alege aplicația de navigație (toate)" else "Selectează Aplicația de Navigație")
+        builder.setSingleChoiceItems(labels.toTypedArray(), selectedIndex) { dialog, which ->
+            if (hasMoreOption && which == entries.size) {
+                dialog.dismiss()
+                showNavAppPicker(showAllApps = true)
+                return@setSingleChoiceItems
+            }
+            val (chosenPkg, chosenLabel) = entries[which]
+            prefs.edit()
+                .putString("nav_app_package", chosenPkg)
+                .putString("nav_app_name", chosenLabel)
+                .apply()
+            tvNavAppStatus.text = chosenLabel
+            if (!WazeNavManager.currentData.isNavigating) {
+                updateWazeUI(WazeNavManager.currentData)
+            }
+            Toast.makeText(this, "Navigație setată: $chosenLabel", Toast.LENGTH_SHORT).show()
+            dialog.dismiss()
+        }
+        builder.setNegativeButton("Anulează", null)
+        builder.show()
+    }
+
     private fun checkAndRequestBluetoothPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
@@ -3610,7 +3839,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun isCarBluetoothConnected(): Boolean {
+    internal fun isCarBluetoothConnected(): Boolean {
         // Dacă s-a deconectat în ultimele 5 secunde, ignoră orice stare reziduală din proxy-uri/reflection
         if (!isCarConnectedState && android.os.SystemClock.elapsedRealtime() - lastDisconnectTimestamp < 5000L) {
             return false
@@ -3781,7 +4010,11 @@ class MainActivity : AppCompatActivity() {
         try {
             val ctrl = controller
             if (ctrl != null) {
-                if (!ctrl.isPlaying && currentMode != CenterMode.MEDIA && !ExternalMediaManager.currentData.isPlaying) {
+                if (!ctrl.isPlaying && (activeMediaSource == ActiveMediaSource.RADIO || currentMode != CenterMode.MEDIA) && !ExternalMediaManager.currentData.isPlaying) {
+                    if (ctrl.playbackState == Player.STATE_IDLE || ctrl.playbackState == Player.STATE_ENDED) {
+                        ctrl.seekToDefaultPosition()
+                        ctrl.prepare()
+                    }
                     ctrl.play()
                     Log.i("MainActivity", "Radio intern pornit via controller la conectare la mașină")
                 }
@@ -4269,9 +4502,12 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread {
                 if (data.isPlaying) {
                     activeMediaSource = ActiveMediaSource.EXTERNAL_APP
+                    lastExternalMediaPlayingRealtimeMs = android.os.SystemClock.elapsedRealtime()
                     if (LocalMusicPlayer.isPlaying) {
                         LocalMusicPlayer.pause()
                     }
+                } else if (activeMediaSource == ActiveMediaSource.EXTERNAL_APP && lastExternalMediaPlayingRealtimeMs > 0L) {
+                    lastExternalMediaPlayingRealtimeMs = android.os.SystemClock.elapsedRealtime()
                 }
                 if (activeMediaSource == ActiveMediaSource.LOCAL_PLAYER && LocalMusicPlayer.isPlaying) {
                     return@runOnUiThread
@@ -5316,6 +5552,7 @@ class MainActivity : AppCompatActivity() {
                 if (::btnCloseSettings.isInitialized && btnCloseSettings.visibility == View.VISIBLE) views.add(btnCloseSettings)
                 if (::btnOpenNotifSettings.isInitialized && btnOpenNotifSettings.visibility == View.VISIBLE) views.add(btnOpenNotifSettings)
                 if (::btnCarBtSelect.isInitialized && btnCarBtSelect.visibility == View.VISIBLE) views.add(btnCarBtSelect)
+                if (::btnNavAppSelect.isInitialized && btnNavAppSelect.visibility == View.VISIBLE) views.add(btnNavAppSelect)
             }
             callOverlayContainer -> {
                 val ringing = findViewById<View>(R.id.call_ringing_actions)
@@ -5694,6 +5931,11 @@ class MainActivity : AppCompatActivity() {
                     showMediaSourcePickerDialog()
                     return true
                 }
+                CenterMode.PHONE -> {
+                    // Deschide fereastra de Ultimele Apeluri
+                    showRecentCallsOverlay()
+                    return true
+                }
                 CenterMode.MAP -> {
                     // Deschide Google Maps
                     launchNavigationApp()
@@ -5787,6 +6029,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun isPhoneCallActive(): Boolean {
+        if (CallOverlayManager.isShowing()) return true
         if (BMWInCallService.currentCall != null) return true
         if (::callOverlayContainer.isInitialized && callOverlayContainer.visibility == View.VISIBLE) return true
         val am = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
@@ -5796,135 +6039,233 @@ class MainActivity : AppCompatActivity() {
                mode == AudioManager.MODE_IN_COMMUNICATION
     }
 
-    private fun captureRadioStateBeforeCall() {
-        if (!wasRadioPlayingBeforeCall) {
-            val isCurrentlyPlaying = controller?.isPlaying == true
-            val wasJustPlaying = activeMediaSource == ActiveMediaSource.RADIO &&
-                    lastRadioPlayingRealtimeMs > 0L &&
-                    (android.os.SystemClock.elapsedRealtime() - lastRadioPlayingRealtimeMs) < 5000L
-            if (isCurrentlyPlaying || wasJustPlaying) {
-                wasRadioPlayingBeforeCall = true
-                callResumeRadioHandler.removeCallbacksAndMessages(null)
+    internal fun captureRadioStateBeforeCall() {
+        if (preCallMediaSourceToResume != null) return
+        val now = android.os.SystemClock.elapsedRealtime()
+
+        val radioActive = (controller?.isPlaying == true) ||
+                (activeMediaSource == ActiveMediaSource.RADIO && lastRadioPlayingRealtimeMs > 0L && (now - lastRadioPlayingRealtimeMs) < 6000L)
+        val localActive = LocalMusicPlayer.isPlaying ||
+                (activeMediaSource == ActiveMediaSource.LOCAL_PLAYER && lastLocalMusicPlayingRealtimeMs > 0L && (now - lastLocalMusicPlayingRealtimeMs) < 6000L)
+        val ytWebActive = (isYouTubeWebMode && isYouTubeWebPlaying) ||
+                (activeMediaSource == ActiveMediaSource.YOUTUBE_WEB && lastYoutubeWebPlayingRealtimeMs > 0L && (now - lastYoutubeWebPlayingRealtimeMs) < 6000L)
+        val extPlayingNow = ExternalMediaManager.currentData.isPlaying ||
+                (ExternalMediaManager.getActiveMusicController(this)?.playbackState?.state == android.media.session.PlaybackState.STATE_PLAYING)
+        val extActive = extPlayingNow ||
+                (activeMediaSource == ActiveMediaSource.EXTERNAL_APP && lastExternalMediaPlayingRealtimeMs > 0L && (now - lastExternalMediaPlayingRealtimeMs) < 6000L)
+
+        preCallMediaSourceToResume = when {
+            radioActive -> ActiveMediaSource.RADIO
+            localActive -> ActiveMediaSource.LOCAL_PLAYER
+            ytWebActive -> ActiveMediaSource.YOUTUBE_WEB
+            extActive -> ActiveMediaSource.EXTERNAL_APP
+            else -> null
+        }
+
+        if (preCallMediaSourceToResume != null) {
+            Log.i("MainActivity", "captureRadioStateBeforeCall: salvat sursa pentru reluare post-apel = $preCallMediaSourceToResume")
+            callResumeRadioHandler.removeCallbacksAndMessages(null)
+        }
+    }
+
+    internal fun onOverlayCallEnded() {
+        runOnUiThread {
+            callTimerHandler.removeCallbacks(callTimerRunnable)
+            if (::callOverlayContainer.isInitialized) {
+                callOverlayContainer.visibility = View.GONE
+            }
+            resumeRadioAfterCallIfNeeded()
+            if (isInForeground) {
+                focusPlayPauseButton()
             }
         }
     }
 
+    internal fun onTelephonyCallIdle() {
+        runOnUiThread {
+            if (preCallMediaSourceToResume != null) {
+                resumeRadioAfterCallIfNeeded()
+            }
+        }
+    }
+
+    private fun isTelephonyIdle(): Boolean {
+        return try {
+            val tm = getSystemService(Context.TELEPHONY_SERVICE) as? android.telephony.TelephonyManager
+            @Suppress("DEPRECATION")
+            (tm?.callState ?: android.telephony.TelephonyManager.CALL_STATE_IDLE) == android.telephony.TelephonyManager.CALL_STATE_IDLE
+        } catch (_: Exception) {
+            true
+        }
+    }
+
+    private fun isAnyMediaCurrentlyPlaying(): Boolean {
+        val extPlaying = ExternalMediaManager.currentData.isPlaying ||
+                (ExternalMediaManager.getActiveMusicController(this)?.playbackState?.state == android.media.session.PlaybackState.STATE_PLAYING)
+        return (controller?.isPlaying == true) ||
+                LocalMusicPlayer.isPlaying ||
+                (isYouTubeWebMode && isYouTubeWebPlaying) ||
+                extPlaying
+    }
+
     private fun resumeRadioAfterCallIfNeeded() {
-        if (!wasRadioPlayingBeforeCall) return
-        wasRadioPlayingBeforeCall = false
+        if (preCallMediaSourceToResume == null) return
         callResumeRadioHandler.removeCallbacksAndMessages(null)
-        val retryDelays = longArrayOf(300L, 750L, 1400L)
-        for (delay in retryDelays) {
-            callResumeRadioHandler.postDelayed({
-                if (!isPhoneCallActive() && !LocalMusicPlayer.isPlaying && controller?.isPlaying != true) {
-                    activeMediaSource = ActiveMediaSource.RADIO
-                    startRadioPlayback()
+
+        val startWaitMs = android.os.SystemClock.elapsedRealtime()
+        var resumeAttempts = 0
+
+        val pollRunnable = object : Runnable {
+            override fun run() {
+                val target = preCallMediaSourceToResume ?: return
+                val elapsed = android.os.SystemClock.elapsedRealtime() - startWaitMs
+                if (elapsed > 9000L) {
+                    Log.w("MainActivity", "resumeMediaAfterCall: timeout după 9s, se renunță la $target.")
+                    preCallMediaSourceToResume = null
+                    return
                 }
-            }, delay)
+
+                // Așteptăm până când apelul telefonic ȘI canalul audio (inclusiv Bluetooth HFP) revin complet la NORMAL
+                if (isPhoneCallActive() || !isTelephonyIdle()) {
+                    callResumeRadioHandler.postDelayed(this, 350L)
+                    return
+                }
+
+                // Dacă muzica a pornit deja automat, am terminat
+                if (isAnyMediaCurrentlyPlaying()) {
+                    Log.i("MainActivity", "resumeMediaAfterCall: muzica rulează deja ($target).")
+                    preCallMediaSourceToResume = null
+                    return
+                }
+
+                if (resumeAttempts == 0) {
+                    // Mică pauză de 350ms ca profilul audio (A2DP) să se stabilizeze după închiderea apelului
+                    resumeAttempts = 1
+                    callResumeRadioHandler.postDelayed({
+                        val pendingTarget = preCallMediaSourceToResume ?: return@postDelayed
+                        if (!isPhoneCallActive() && isTelephonyIdle() && !isAnyMediaCurrentlyPlaying()) {
+                            executeMediaResume(pendingTarget)
+                            callResumeRadioHandler.postDelayed(this, 1000L)
+                        } else if (isAnyMediaCurrentlyPlaying()) {
+                            preCallMediaSourceToResume = null
+                        } else {
+                            callResumeRadioHandler.postDelayed(this, 350L)
+                        }
+                    }, 350L)
+                } else if (resumeAttempts < 3) {
+                    resumeAttempts++
+                    Log.i("MainActivity", "resumeMediaAfterCall: reîncercare #$resumeAttempts pentru $target")
+                    executeMediaResume(target)
+                    callResumeRadioHandler.postDelayed(this, 1100L)
+                } else {
+                    preCallMediaSourceToResume = null
+                }
+            }
+        }
+
+        callResumeRadioHandler.postDelayed(pollRunnable, 350L)
+    }
+
+    private fun executeMediaResume(source: ActiveMediaSource) {
+        Log.i("MainActivity", "executeMediaResume: reluare sursă $source după apel")
+        when (source) {
+            ActiveMediaSource.RADIO -> {
+                activeMediaSource = ActiveMediaSource.RADIO
+                val ctrl = controller
+                if (ctrl != null) {
+                    try {
+                        if (ctrl.playbackState == Player.STATE_IDLE || ctrl.playbackState == Player.STATE_ENDED) {
+                            ctrl.seekToDefaultPosition()
+                            ctrl.prepare()
+                        }
+                        ctrl.play()
+                        updatePlayPauseIcon(true)
+                        Log.i("MainActivity", "executeMediaResume: Radio repornit direct via MediaController (state=${ctrl.playbackState})")
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Eroare reluare radio via controller: ${e.message}")
+                    }
+                } else {
+                    try {
+                        val radioIntent = Intent(this, RadioService::class.java).apply {
+                            action = RadioService.ACTION_START_PLAY
+                        }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(radioIntent)
+                        } else {
+                            startService(radioIntent)
+                        }
+                        Log.i("MainActivity", "executeMediaResume: RadioService pornit cu ACTION_START_PLAY")
+                    } catch (_: Exception) {}
+                }
+            }
+            ActiveMediaSource.LOCAL_PLAYER -> {
+                activeMediaSource = ActiveMediaSource.LOCAL_PLAYER
+                LocalMusicPlayer.play()
+                updatePlayPauseIcon(true)
+            }
+            ActiveMediaSource.YOUTUBE_WEB -> {
+                activeMediaSource = ActiveMediaSource.YOUTUBE_WEB
+                youtubeWebView?.evaluateJavascript(
+                    "window.__bmwUserPaused = false; var v = document.querySelector('video'); if (v) v.play();",
+                    null
+                )
+                isYouTubeWebPlaying = true
+                updatePlayPauseIcon(true)
+            }
+            ActiveMediaSource.EXTERNAL_APP -> {
+                activeMediaSource = ActiveMediaSource.EXTERNAL_APP
+                val mc = ExternalMediaManager.getActiveMusicController(this)
+                if (mc != null) {
+                    try {
+                        mc.transportControls.play()
+                    } catch (_: Exception) {}
+                } else {
+                    try {
+                        val am = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+                        am?.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY))
+                        am?.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY))
+                    } catch (_: Exception) {}
+                }
+            }
         }
     }
 
     fun showIncomingCallUI(number: String?, name: String?, customBitmap: Bitmap? = null) {
-        captureRadioStateBeforeCall()
-        val contactInfo = if (customBitmap != null) {
-            Pair(name, customBitmap)
-        } else if (number != null) {
-            getContactInfo(this, number)
-        } else {
-            Pair(name, null)
+        if (::callOverlayContainer.isInitialized) {
+            callOverlayContainer.visibility = View.GONE
         }
-        val displayName = name ?: contactInfo.first ?: number ?: "Număr Necunoscut"
-        val displayPhone = number ?: ""
-
-        callContactName.text = displayName
-        callPhoneNumber.text = displayPhone
-
-        if (contactInfo.second != null) {
-            callContactPhoto.setPadding(0, 0, 0, 0)
-            try {
-                val circularBitmap = getCircularBitmap(contactInfo.second!!)
-                callContactPhoto.setImageBitmap(circularBitmap)
-            } catch (e: Exception) {
-                callContactPhoto.setImageBitmap(contactInfo.second)
-            }
-            callContactPhoto.scaleType = ImageView.ScaleType.CENTER_CROP
-        } else {
-            val pad = (14 * resources.displayMetrics.density).toInt()
-            callContactPhoto.setPadding(pad, pad, pad, pad)
-            callContactPhoto.setImageResource(R.drawable.ic_call_avatar)
-            callContactPhoto.scaleType = ImageView.ScaleType.FIT_CENTER
-        }
-
-        callStatusTitle.text = "⚡ APEL DE INTRARE"
-        callDurationTimer.visibility = View.GONE
-        callRingingActions.visibility = View.VISIBLE
-        btnCallHangup.visibility = View.GONE
-        callOverlayContainer.visibility = View.VISIBLE
-
-        btnCallAnswer.requestFocus()
+        CallOverlayManager.onIncomingCall(
+            context = this,
+            number = number,
+            name = name,
+            photo = customBitmap,
+            forceShow = true,
+            isTest = (customBitmap != null)
+        )
     }
 
     fun showActiveCallUI() {
-        captureRadioStateBeforeCall()
-        callStatusTitle.text = "● APEL ÎN DESFĂȘURARE"
-        callRingingActions.visibility = View.GONE
-        btnCallHangup.visibility = View.VISIBLE
-        callDurationTimer.visibility = View.VISIBLE
-
-        callDurationSeconds = 0
-        callDurationTimer.text = "00:00"
-        callTimerHandler.removeCallbacks(callTimerRunnable)
-        callTimerHandler.postDelayed(callTimerRunnable, 1000)
-
-        callOverlayContainer.visibility = View.VISIBLE
-        btnCallHangup.isFocusable = true
-        btnCallHangup.isFocusableInTouchMode = true
-        btnCallHangup.requestFocus()
-        btnCallHangup.post {
-            btnCallHangup.requestFocus()
+        if (::callOverlayContainer.isInitialized) {
+            callOverlayContainer.visibility = View.GONE
         }
+        CallOverlayManager.onCallActive(this)
     }
 
     fun dismissCallUI() {
-        callTimerHandler.removeCallbacks(callTimerRunnable)
-        callOverlayContainer.visibility = View.GONE
-        resumeRadioAfterCallIfNeeded()
-        focusPlayPauseButton()
+        CallOverlayManager.dismiss(this)
     }
 
     fun showOutgoingCallUI(number: String, name: String, photo: Bitmap?) {
-        captureRadioStateBeforeCall()
-        callContactName.text = name
-        callPhoneNumber.text = number
-
-        if (photo != null) {
-            callContactPhoto.setPadding(0, 0, 0, 0)
-            try {
-                val circularBitmap = getCircularBitmap(photo)
-                callContactPhoto.setImageBitmap(circularBitmap)
-            } catch (e: Exception) {
-                callContactPhoto.setImageBitmap(photo)
-            }
-            callContactPhoto.scaleType = ImageView.ScaleType.CENTER_CROP
-        } else {
-            val pad = (14 * resources.displayMetrics.density).toInt()
-            callContactPhoto.setPadding(pad, pad, pad, pad)
-            callContactPhoto.setImageResource(R.drawable.ic_call_avatar)
-            callContactPhoto.scaleType = ImageView.ScaleType.FIT_CENTER
+        if (::callOverlayContainer.isInitialized) {
+            callOverlayContainer.visibility = View.GONE
         }
-
-        callStatusTitle.text = "● APELARE ÎN CURS..."
-        callDurationTimer.visibility = View.GONE
-        callRingingActions.visibility = View.GONE
-        btnCallHangup.visibility = View.VISIBLE
-        callOverlayContainer.visibility = View.VISIBLE
-
-        btnCallHangup.isFocusable = true
-        btnCallHangup.isFocusableInTouchMode = true
-        btnCallHangup.requestFocus()
-        btnCallHangup.post {
-            btnCallHangup.requestFocus()
-        }
+        CallOverlayManager.onOutgoingCall(
+            context = this,
+            number = number,
+            name = name,
+            photo = photo,
+            forceShow = true
+        )
     }
 
     private fun showRecentCallsOverlay() {
@@ -5939,17 +6280,6 @@ class MainActivity : AppCompatActivity() {
                 2001
             )
             return
-        }
-
-        // Sugeram setarea ca Default Phone App daca nu este deja setat, pentru a elimina complet dialerul nativ
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val roleManager = getSystemService(RoleManager::class.java)
-            if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_DIALER) && !roleManager.isRoleHeld(RoleManager.ROLE_DIALER)) {
-                try {
-                    val roleIntent = roleManager.createRequestRoleIntent(RoleManager.ROLE_DIALER)
-                    startActivityForResult(roleIntent, 2002)
-                } catch (_: Exception) {}
-            }
         }
 
         val recentCalls = loadRecentCalls()
@@ -6023,6 +6353,55 @@ class MainActivity : AppCompatActivity() {
         btnCloseFavorites.isFocusable = true
         btnCloseFavorites.isFocusableInTouchMode = false
         btnCloseFavorites.enableInstantClickOnTouch()
+        listFavoriteContacts.post {
+            val firstItem = listFavoriteContacts.getChildAt(0)
+            if (firstItem != null && listFavoriteContacts.visibility == View.VISIBLE) {
+                firstItem.isFocusable = true
+                firstItem.isFocusableInTouchMode = true
+                firstItem.requestFocus()
+            } else {
+                btnCloseFavorites.isFocusableInTouchMode = true
+                btnCloseFavorites.requestFocus()
+            }
+        }
+    }
+
+    private fun updateCenterPhonePreview() {
+        if (!::tvCenterPhoneLastCall.isInitialized) return
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
+            tvCenterPhoneLastCall.text = "Apeluri recente"
+            return
+        }
+        try {
+            val projection = arrayOf(
+                CallLog.Calls.CACHED_NAME,
+                CallLog.Calls.NUMBER
+            )
+            contentResolver.query(
+                CallLog.Calls.CONTENT_URI,
+                projection,
+                null,
+                null,
+                "${CallLog.Calls.DATE} DESC"
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val nameIdx = cursor.getColumnIndex(CallLog.Calls.CACHED_NAME)
+                    val numIdx = cursor.getColumnIndex(CallLog.Calls.NUMBER)
+                    val cachedName = if (nameIdx != -1) cursor.getString(nameIdx)?.trim() else null
+                    val rawNum = if (numIdx != -1) cursor.getString(numIdx)?.trim() else null
+                    val label = when {
+                        !cachedName.isNullOrEmpty() -> cachedName
+                        !rawNum.isNullOrEmpty() -> rawNum
+                        else -> null
+                    }
+                    if (!label.isNullOrEmpty()) {
+                        tvCenterPhoneLastCall.text = "Ultimul: $label"
+                        return
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+        tvCenterPhoneLastCall.text = "Apeluri recente"
     }
 
     private fun showFavoritesOverlay() {
@@ -6122,7 +6501,7 @@ class MainActivity : AppCompatActivity() {
     private fun startCallToRecent(call: RecentCall) {
         captureRadioStateBeforeCall()
         favoritesOverlayContainer.visibility = View.GONE
-        showOutgoingCallUI(call.number, call.name, call.photo)
+        CallOverlayManager.onOutgoingCall(this, call.number, call.name, call.photo, forceShow = true)
 
         try {
             if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED) {
@@ -6143,34 +6522,8 @@ class MainActivity : AppCompatActivity() {
                 startActivity(dialIntent)
             }
         } catch (e: Exception) {
+            CallOverlayManager.dismiss(this)
             Toast.makeText(this, "Eroare la inițierea apelului: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
-
-        keepLauncherOnTop()
-    }
-
-    private fun keepLauncherOnTop() {
-        val handler = Handler(Looper.getMainLooper())
-        val delays = longArrayOf(80L, 220L, 480L, 850L, 1400L, 2200L)
-        for (delay in delays) {
-            handler.postDelayed({
-                if (callOverlayContainer.visibility == View.VISIBLE) {
-                    try {
-                        val am = getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
-                        am?.moveTaskToFront(taskId, 0)
-                    } catch (_: Exception) {}
-                    try {
-                        val intent = Intent(this@MainActivity, MainActivity::class.java).apply {
-                            addFlags(
-                                Intent.FLAG_ACTIVITY_NEW_TASK or
-                                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
-                                Intent.FLAG_ACTIVITY_SINGLE_TOP
-                            )
-                        }
-                        startActivity(intent)
-                    } catch (_: Exception) {}
-                }
-            }, delay)
         }
     }
 
@@ -6356,20 +6709,7 @@ class MainActivity : AppCompatActivity() {
             ActivityCompat.requestPermissions(this, permissions.toTypedArray(), 2001)
         }
 
-        // Cerere Default Phone Role daca este pe Android 10+
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val roleManager = getSystemService(RoleManager::class.java)
-            if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_DIALER) && !roleManager.isRoleHeld(RoleManager.ROLE_DIALER)) {
-                try {
-                    val roleIntent = roleManager.createRequestRoleIntent(RoleManager.ROLE_DIALER)
-                    startActivityForResult(roleIntent, 2002)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-        }
-
-        // Verificare permisiune overlay (pentru revenire automata YT Music si suprimare ecran nativ dialer)
+        // Verificare permisiune overlay (pentru revenire automata YT Music si afisare fereastra apel peste dialerul nativ)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
             try {
                 val overlayIntent = Intent(

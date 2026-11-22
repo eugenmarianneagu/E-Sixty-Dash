@@ -116,6 +116,7 @@ class RadioService : MediaSessionService() {
                 addAction(android.bluetooth.BluetoothDevice.ACTION_ACL_CONNECTED)
                 addAction(android.bluetooth.BluetoothDevice.ACTION_ACL_DISCONNECTED)
                 addAction(android.bluetooth.BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED)
+                addAction(android.bluetooth.BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED)
                 addAction(ReturnHomeReceiver.ACTION_HID_CONNECTION_STATE_CHANGED)
                 addAction(android.bluetooth.BluetoothAdapter.ACTION_STATE_CHANGED)
             }

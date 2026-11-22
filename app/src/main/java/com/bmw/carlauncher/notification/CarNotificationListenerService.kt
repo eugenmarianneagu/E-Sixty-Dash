@@ -1,12 +1,20 @@
 package com.bmw.carlauncher.notification
 
 import android.app.Notification
+import android.app.PendingIntent
+import android.app.Person
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Icon
+import android.os.Build
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.bmw.carlauncher.CallOverlayManager
 
 class CarNotificationListenerService : NotificationListenerService() {
 
@@ -50,6 +58,21 @@ class CarNotificationListenerService : NotificationListenerService() {
                     Log.e(TAG, "Eroare rebindService: ${e.message}")
                 }
             }
+        }
+
+        fun getActiveCallNotificationInfo(context: Context): CallOverlayManager.CallNotificationInfo? {
+            val svc = instance ?: return null
+            val active = try {
+                svc.activeNotifications ?: return null
+            } catch (_: Exception) {
+                return null
+            }
+            for (sbn in active) {
+                if (sbn == null) continue
+                val info = svc.extractCallNotificationInfo(sbn)
+                if (info != null) return info
+            }
+            return null
         }
     }
 
@@ -152,6 +175,12 @@ class CarNotificationListenerService : NotificationListenerService() {
         super.onNotificationPosted(sbn)
         if (sbn == null) return
 
+        // Verificare notificare activă de apel telefonic (Google Phone / Dialer sistem)
+        val callInfo = extractCallNotificationInfo(sbn)
+        if (callInfo != null) {
+            CallOverlayManager.onCallNotificationUpdated(this, callInfo)
+        }
+
         syncActiveNotificationsCount()
 
         val parsed = parseCarNotification(sbn) ?: return
@@ -160,6 +189,131 @@ class CarNotificationListenerService : NotificationListenerService() {
         if (isMessagingApp) {
             Log.i(TAG, "Notificare mesaje/voce receptionata: App=${parsed.appName}, De la=${parsed.sender}")
             CarNotificationHub.postNotification(parsed)
+        }
+    }
+
+    private fun isPhoneDialerPackage(pkg: String): Boolean {
+        val lower = pkg.lowercase()
+        return lower == "com.google.android.dialer" ||
+                lower == "com.android.dialer" ||
+                lower == "com.android.incallui" ||
+                lower == "com.android.phone" ||
+                lower == "com.android.server.telecom" ||
+                lower == "com.samsung.android.incallui" ||
+                lower == "com.samsung.android.dialer" ||
+                lower.contains("incallui")
+    }
+
+    fun extractCallNotificationInfo(sbn: StatusBarNotification): CallOverlayManager.CallNotificationInfo? {
+        val pkg = sbn.packageName ?: return null
+        if (pkg == packageName) return null
+        val n = sbn.notification ?: return null
+
+        val isCallCategory = (n.category == Notification.CATEGORY_CALL)
+        val isDialerPkg = isPhoneDialerPackage(pkg)
+        if (!isCallCategory && !isDialerPkg) return null
+
+        val extras = n.extras ?: return null
+        var answerIntent: PendingIntent? = null
+        var declineOrHangupIntent: PendingIntent? = null
+
+        // Android 12+ Notification.CallStyle extras
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                @Suppress("DEPRECATION")
+                answerIntent = extras.getParcelable(Notification.EXTRA_ANSWER_INTENT) as? PendingIntent
+                @Suppress("DEPRECATION")
+                val decline = extras.getParcelable(Notification.EXTRA_DECLINE_INTENT) as? PendingIntent
+                @Suppress("DEPRECATION")
+                val hangup = extras.getParcelable(Notification.EXTRA_HANG_UP_INTENT) as? PendingIntent
+                declineOrHangupIntent = decline ?: hangup
+            } catch (_: Exception) {}
+        }
+
+        // Fallback: acțiuni standard din notificare
+        val actions = n.actions
+        if (actions != null) {
+            for (act in actions) {
+                val t = act.title?.toString()?.lowercase() ?: ""
+                if (answerIntent == null && (t.contains("answer") || t.contains("răspund") || t.contains("raspund") || t.contains("accept"))) {
+                    answerIntent = act.actionIntent
+                } else if (declineOrHangupIntent == null && (t.contains("decline") || t.contains("reject") || t.contains("hang") || t.contains("end") || t.contains("resping") || t.contains("închei") || t.contains("inchei") || t.contains("închid") || t.contains("inchid"))) {
+                    declineOrHangupIntent = act.actionIntent
+                }
+            }
+        }
+
+        val isOngoing = sbn.isOngoing || ((n.flags and Notification.FLAG_ONGOING_EVENT) != 0)
+        if (!isOngoing && answerIntent == null && declineOrHangupIntent == null) {
+            return null
+        }
+
+        var callerTitle = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim()
+        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim()
+
+        // Ignorăm notificările de apel pierdut
+        val combinedLower = "${callerTitle ?: ""} ${text ?: ""}".lowercase()
+        if (combinedLower.contains("missed call") || combinedLower.contains("apel pierdut") || combinedLower.contains("apeluri pierdute") || combinedLower.contains("nepreluat")) {
+            return null
+        }
+
+        var photo: Bitmap? = null
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                @Suppress("DEPRECATION")
+                val person = extras.getParcelable(Notification.EXTRA_CALL_PERSON) as? Person
+                if (person != null) {
+                    val pName = person.name?.toString()?.trim()
+                    if (!pName.isNullOrEmpty()) {
+                        callerTitle = pName
+                    }
+                    photo = iconToBitmap(person.icon)
+                }
+            } catch (_: Exception) {}
+        }
+
+        if (photo == null) {
+            try {
+                photo = iconToBitmap(n.getLargeIcon())
+            } catch (_: Exception) {}
+        }
+
+        val usesChronometer = extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false)
+        val isIncomingHint = (answerIntent != null) ||
+                combinedLower.contains("incoming") ||
+                combinedLower.contains("apel de intrare") ||
+                combinedLower.contains("apel primit")
+
+        return CallOverlayManager.CallNotificationInfo(
+            key = sbn.key,
+            title = callerTitle,
+            text = text,
+            photo = photo,
+            usesChronometer = usesChronometer,
+            whenTimeMs = n.`when`,
+            isIncomingHint = isIncomingHint,
+            answerIntent = answerIntent,
+            declineOrHangupIntent = declineOrHangupIntent
+        )
+    }
+
+    private fun iconToBitmap(icon: Icon?): Bitmap? {
+        if (icon == null) return null
+        return try {
+            val drawable = icon.loadDrawable(this) ?: return null
+            if (drawable is BitmapDrawable && drawable.bitmap != null) {
+                drawable.bitmap
+            } else {
+                val w = drawable.intrinsicWidth.coerceAtLeast(1)
+                val h = drawable.intrinsicHeight.coerceAtLeast(1)
+                val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(bmp)
+                drawable.setBounds(0, 0, canvas.width, canvas.height)
+                drawable.draw(canvas)
+                bmp
+            }
+        } catch (_: Exception) {
+            null
         }
     }
 
@@ -305,6 +459,7 @@ class CarNotificationListenerService : NotificationListenerService() {
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         super.onNotificationRemoved(sbn)
         if (sbn != null) {
+            CallOverlayManager.onCallNotificationRemoved(this, sbn.key)
             CarNotificationHub.removeNotification(sbn.key)
         }
         syncActiveNotificationsCount()
